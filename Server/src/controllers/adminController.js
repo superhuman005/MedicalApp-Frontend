@@ -1,6 +1,6 @@
 // controllers/adminController.js
-const User = require("../models/User");
-const Appointment = require("../models/Appointment");
+const User = require("../../models/User");
+const Appointment = require("../../models/Appointment");
 
 exports.getAllUsers = async (req, res) => {
   const users = await User.find();
