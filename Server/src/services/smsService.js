@@ -13,4 +13,4 @@ const sendSMS = async (to, message) => {
   });
 };
 
-module.exports = sendSMS;s
+module.exports = sendSMS;
