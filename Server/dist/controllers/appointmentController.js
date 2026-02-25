@@ -1,6 +1,6 @@
 const Appointment = require("../models/Appointment");
-const sendEmail = require("../src/services/emailService");
-const sendSMS = require("../src/services/smsService");
+const sendEmail = require("../services/emailService");
+const sendSMS = require("../services/smsService");
 exports.bookAppointment = async (req, res) => {
     const { doctorId, date } = req.body;
     const appointment = await Appointment.create({

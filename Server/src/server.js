@@ -12,7 +12,8 @@ connectDB();
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:8080" // or your frontend port
+  origin: ["http://localhost:8080", "https://medicalapp-frontend.vercel.app"],
+  credentials: true
 }));
 
 // Middleware
