@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Video, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import API from "@/services/api";
+import { AxiosError } from "axios";
 
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -34,46 +36,90 @@ const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handlePatientSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (patientData.password !== patientData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords don't match",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    localStorage.setItem('userType', 'patient');
-    localStorage.setItem('userEmail', patientData.email);
+const handlePatientSignup = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (patientData.password !== patientData.confirmPassword) {
+    toast({
+      title: "Error",
+      description: "Passwords don't match",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    const res = await API.post("/auth/signup", {
+      firstName: patientData.firstName,
+      lastName: patientData.lastName,
+      email: patientData.email,
+      phone: patientData.phone,
+      password: patientData.password,
+      role: "patient",
+    });
+
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("userType", "patient");
+
     toast({
       title: "Account Created Successfully",
-      description: "Welcome to TeleMed! Redirecting to your dashboard...",
+      description: "Welcome to TeleMed!",
     });
-    setTimeout(() => navigate('/patient-dashboard'), 1000);
-  };
 
-  const handleDoctorSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (doctorData.password !== doctorData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords don't match",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    localStorage.setItem('userType', 'doctor');
-    localStorage.setItem('userEmail', doctorData.email);
+    setTimeout(() => navigate("/patient-dashboard"), 1000);
+
+  } catch (error: any) {
+    toast({
+      title: "Signup Failed",
+      description: error.response?.data?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  }
+};
+
+const handleDoctorSignup = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (doctorData.password !== doctorData.confirmPassword) {
+    toast({
+      title: "Error",
+      description: "Passwords don't match",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    const res = await API.post("/auth/signup", {
+      firstName: doctorData.firstName,
+      lastName: doctorData.lastName,
+      email: doctorData.email,
+      phone: doctorData.phone,
+      specialty: doctorData.specialty,
+      licenseNumber: doctorData.licenseNumber,
+      experience: doctorData.experience,
+      password: doctorData.password,
+      role: "doctor",
+    });
+
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("userType", "doctor");
+
     toast({
       title: "Account Created Successfully",
-      description: "Welcome to TeleMed, Doctor! Redirecting to your dashboard...",
+      description: "Welcome Doctor!",
     });
-    setTimeout(() => navigate('/doctor-dashboard'), 1000);
-  };
 
+    setTimeout(() => navigate("/doctor-dashboard"), 1000);
+
+  } catch (error: any) {
+    toast({
+      title: "Signup Failed",
+      description: error.response?.data?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  }
+};
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">

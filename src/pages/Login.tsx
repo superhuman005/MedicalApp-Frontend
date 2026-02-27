@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Video, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import API from "@/services/api";
+import { AxiosError } from "axios";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,32 +18,63 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handlePatientLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (patientData.email && patientData.password) {
-      // Store user type in localStorage for demo purposes
-      localStorage.setItem('userType', 'patient');
-      localStorage.setItem('userEmail', patientData.email);
-      toast({
-        title: "Login Successful",
-        description: "Welcome back! Redirecting to your dashboard...",
-      });
-      setTimeout(() => navigate('/patient-dashboard'), 1000);
-    }
-  };
+ const handlePatientLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-  const handleDoctorLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (doctorData.email && doctorData.password) {
-      localStorage.setItem('userType', 'doctor');
-      localStorage.setItem('userEmail', doctorData.email);
-      toast({
-        title: "Login Successful",
-        description: "Welcome back, Doctor! Redirecting to your dashboard...",
-      });
-      setTimeout(() => navigate('/doctor-dashboard'), 1000);
-    }
-  };
+  try {
+    const res = await API.post("/auth/login", {
+      email: patientData.email,
+      password: patientData.password,
+      role: "patient", // important if your backend supports roles
+    });
+
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("userType", "patient");
+
+    toast({
+      title: "Login Successful",
+      description: "Welcome back! Redirecting...",
+    });
+
+    setTimeout(() => navigate("/patient-dashboard"), 1000);
+
+  } catch (error: any ) {
+    toast({
+      title: "Login Failed",
+      description: error.response?.data?.message || "Invalid credentials",
+      variant: "destructive",
+    });
+  }
+};
+
+const handleDoctorLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    const res = await API.post("/auth/login", {
+      email: doctorData.email,
+      password: doctorData.password,
+      role: "doctor",
+    });
+
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("userType", "doctor");
+
+    toast({
+      title: "Login Successful",
+      description: "Welcome back Doctor!",
+    });
+
+    setTimeout(() => navigate("/doctor-dashboard"), 1000);
+
+  } catch (error: any) {
+    toast({
+      title: "Login Failed",
+      description: error.response?.data?.message || "Invalid credentials",
+      variant: "destructive",
+    });
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
