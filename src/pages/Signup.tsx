@@ -49,7 +49,7 @@ const handlePatientSignup = async (e: React.FormEvent) => {
   }
 
   try {
-    const res = await API.post("/auth/signup", {
+    const res = await API.post("/auth/register", {
       firstName: patientData.firstName,
       lastName: patientData.lastName,
       email: patientData.email,
@@ -90,14 +90,14 @@ const handleDoctorSignup = async (e: React.FormEvent) => {
   }
 
   try {
-    const res = await API.post("/auth/signup", {
+    const res = await API.post("/auth/register", {
       firstName: doctorData.firstName,
       lastName: doctorData.lastName,
       email: doctorData.email,
       phone: doctorData.phone,
-      specialty: doctorData.specialty,
-      licenseNumber: doctorData.licenseNumber,
-      experience: doctorData.experience,
+      specialization: doctorData.specialty,
+      medicalLicenseNumber: doctorData.licenseNumber,
+      yearsOfExperience: Number(doctorData.experience),
       password: doctorData.password,
       role: "doctor",
     });
