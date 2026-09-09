@@ -538,7 +538,7 @@ const PatientDashboard = () => {
       </div>
 
       {/* Floating AI Chatbot Button */}
-      <Drawer open={isChatbotOpen} onOpenChange={setIsChatbotOpen}>
+      <Drawer open={isChatbotOpen} onOpenChange={setIsChatbotOpen} shouldScaleBackground={false}>
         <DrawerTrigger asChild>
           <Button
             className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg z-40"
