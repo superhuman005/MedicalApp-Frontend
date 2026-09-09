@@ -339,7 +339,7 @@ const DoctorDashboard = () => {
                       <LineChart data={monthlyTrend}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="label" />
-                        <YAxis allowDecimals={false} />
+                        <YAxis allowDecimals={false} domain={[0, (max: number) => Math.max(max, 4)]} />
                         <Tooltip />
                         <Line type="monotone" dataKey="count" name="Consultations" stroke="#2563eb" strokeWidth={2} />
                       </LineChart>
