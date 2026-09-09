@@ -1,79 +1,98 @@
 
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Clock, MessageSquare, Video, User, CheckCircle, XCircle } from "lucide-react";
+import { Clock, MessageSquare, Video, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface ConsultationRequest {
-  id: string;
-  patientName: string;
-  patientAge?: number;
-  patientRelationship: string;
-  type: 'video' | 'chat';
-  urgency: 'low' | 'medium' | 'high';
-  message?: string;
-  requestedAt: string;
-  timeAgo: string;
-}
+import { useNavigate } from "react-router-dom";
+import {
+  getConsultationRequests,
+  acceptConsultationRequest,
+  declineConsultationRequest,
+} from "@/services/consultationRequests";
+import { getErrorMessage } from "@/services/api";
+import { getSocket } from "@/services/socket";
+import type { ConsultationRequestItem } from "@/types";
 
 const ConsultationRequests = () => {
   const { toast } = useToast();
-  const [requests, setRequests] = useState<ConsultationRequest[]>([
-    {
-      id: '1',
-      patientName: 'John Smith',
-      patientAge: 35,
-      patientRelationship: 'self',
-      type: 'video',
-      urgency: 'medium',
-      message: 'Having chest pain and shortness of breath. Need immediate consultation.',
-      requestedAt: '2024-01-15T10:30:00Z',
-      timeAgo: '2 minutes ago'
-    },
-    {
-      id: '2',
-      patientName: 'Emma Smith',
-      patientAge: 8,
-      patientRelationship: 'daughter',
-      type: 'chat',
-      urgency: 'low',
-      message: 'Child has mild fever and cough for 2 days.',
-      requestedAt: '2024-01-15T10:25:00Z',
-      timeAgo: '7 minutes ago'
-    },
-    {
-      id: '3',
-      patientName: 'Michael Johnson',
-      patientAge: 42,
-      patientRelationship: 'self',
-      type: 'video',
-      urgency: 'high',
-      message: 'Severe headache and dizziness. Very concerned.',
-      requestedAt: '2024-01-15T10:20:00Z',
-      timeAgo: '12 minutes ago'
-    }
-  ]);
+  const navigate = useNavigate();
+  const [requests, setRequests] = useState<ConsultationRequestItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [actingOnId, setActingOnId] = useState<string | null>(null);
 
-  const handleAcceptRequest = (requestId: string) => {
-    const request = requests.find(r => r.id === requestId);
-    if (request) {
+  const loadRequests = useCallback(async () => {
+    try {
+      const data = await getConsultationRequests({ status: "pending" });
+      setRequests(data);
+    } catch (error) {
+      toast({
+        title: "Couldn't load requests",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadRequests();
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewRequest = (request: ConsultationRequestItem) => {
+      setRequests((prev) => (prev.some((r) => r._id === request._id) ? prev : [request, ...prev]));
+    };
+
+    socket.on("consultation-request:new", handleNewRequest);
+    return () => {
+      socket.off("consultation-request:new", handleNewRequest);
+    };
+  }, [loadRequests]);
+
+  const handleAcceptRequest = async (request: ConsultationRequestItem) => {
+    setActingOnId(request._id);
+    try {
+      const { appointment } = await acceptConsultationRequest(request._id);
       toast({
         title: "Request Accepted",
-        description: `Starting ${request.type} consultation with ${request.patientName}`,
+        description: `Starting ${request.type} consultation with ${request.patient.firstName} ${request.patient.lastName}`,
       });
-      setRequests(prev => prev.filter(r => r.id !== requestId));
+      setRequests((prev) => prev.filter((r) => r._id !== request._id));
+      navigate(`/video-call?appointmentId=${appointment._id}&type=${appointment.type}`);
+    } catch (error) {
+      toast({
+        title: "Couldn't accept request",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setActingOnId(null);
     }
   };
 
-  const handleDeclineRequest = (requestId: string) => {
-    setRequests(prev => prev.filter(r => r.id !== requestId));
-    toast({
-      title: "Request Declined",
-      description: "The consultation request has been declined.",
-    });
+  const handleDeclineRequest = async (requestId: string) => {
+    setActingOnId(requestId);
+    try {
+      await declineConsultationRequest(requestId);
+      setRequests((prev) => prev.filter((r) => r._id !== requestId));
+      toast({
+        title: "Request Declined",
+        description: "The consultation request has been declined.",
+      });
+    } catch (error) {
+      toast({
+        title: "Couldn't decline request",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setActingOnId(null);
+    }
   };
 
   const getUrgencyColor = (urgency: string) => {
@@ -90,7 +109,9 @@ const ConsultationRequests = () => {
       <CardHeader>
         <CardTitle>Consultation Requests</CardTitle>
         <CardDescription>
-          {requests.length > 0 
+          {isLoading
+            ? 'Loading requests…'
+            : requests.length > 0
             ? `${requests.length} patient${requests.length === 1 ? '' : 's'} waiting for consultation`
             : 'No pending consultation requests'
           }
@@ -98,81 +119,98 @@ const ConsultationRequests = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {requests.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 mx-auto animate-spin text-gray-400" />
+            </div>
+          ) : requests.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <MessageSquare className="w-12 h-12 mx-auto text-gray-400 mb-3" />
               <p>No consultation requests at the moment</p>
               <p className="text-sm">You'll be notified when patients request consultations</p>
             </div>
           ) : (
-            requests.map((request) => (
-              <Card key={request.id} className="border-l-4 border-l-blue-500">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src="/placeholder.svg" />
-                        <AvatarFallback>
-                          {request.patientName.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-semibold">{request.patientName}</h3>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <span className="capitalize">{request.patientRelationship}</span>
-                          {request.patientAge && <span>• {request.patientAge} years old</span>}
+            requests.map((request) => {
+              const patientName = `${request.patient.firstName} ${request.patient.lastName}`;
+              const displayName = request.familyMember ? request.familyMember.name : patientName;
+              const relationship = request.familyMember?.relationship || 'self';
+              const age = request.familyMember?.age;
+
+              return (
+                <Card key={request._id} className="border-l-4 border-l-blue-500">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src="/placeholder.svg" />
+                          <AvatarFallback>
+                            {displayName.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h3 className="font-semibold">{displayName}</h3>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <span className="capitalize">{relationship}</span>
+                            {age && <span>• {age} years old</span>}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getUrgencyColor(request.urgency)}>
+                          {request.urgency} priority
+                        </Badge>
+                        <Badge variant="outline" className="flex items-center space-x-1">
+                          {request.type === 'video' ? (
+                            <Video className="w-3 h-3" />
+                          ) : (
+                            <MessageSquare className="w-3 h-3" />
+                          )}
+                          <span>{request.type}</span>
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge className={getUrgencyColor(request.urgency)}>
-                        {request.urgency} priority
-                      </Badge>
-                      <Badge variant="outline" className="flex items-center space-x-1">
-                        {request.type === 'video' ? (
-                          <Video className="w-3 h-3" />
-                        ) : (
-                          <MessageSquare className="w-3 h-3" />
-                        )}
-                        <span>{request.type}</span>
-                      </Badge>
-                    </div>
-                  </div>
 
-                  {request.message && (
-                    <div className="bg-gray-50 p-3 rounded-lg mb-3">
-                      <p className="text-sm text-gray-700">{request.message}</p>
-                    </div>
-                  )}
+                    {request.message && (
+                      <div className="bg-gray-50 p-3 rounded-lg mb-3">
+                        <p className="text-sm text-gray-700">{request.message}</p>
+                      </div>
+                    )}
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Clock className="w-4 h-4 mr-1" />
-                      {request.timeAgo}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Clock className="w-4 h-4 mr-1" />
+                        {request.timeAgo}
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeclineRequest(request._id)}
+                          disabled={actingOnId === request._id}
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Decline
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcceptRequest(request)}
+                          disabled={actingOnId === request._id}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {actingOnId === request._id ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                          )}
+                          Accept
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeclineRequest(request.id)}
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                      >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Decline
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleAcceptRequest(request.id)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Accept
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
       </CardContent>

@@ -1,131 +1,143 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { Video, Calendar, FileText, Users, Clock, MessageSquare, Phone, LogOut, Bot, CreditCard } from "lucide-react";
+import { Video, Calendar, FileText, Users, Clock, MessageSquare, LogOut, Bot, CreditCard, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import PatientSubscription from "@/components/PatientSubscription";
 import PatientSelector from "@/components/PatientSelector";
 import PatientManagement from "@/components/PatientManagement";
 import DoctorList from "@/components/DoctorList";
 import AIChatbot from "@/components/AIChatbot";
-
-interface Patient {
-  id: string;
-  name: string;
-  relationship: string;
-  age?: number;
-  avatar?: string;
-}
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/services/api";
+import {
+  getFamilyMembers,
+  addFamilyMember,
+  updateFamilyMember,
+  deleteFamilyMember,
+  FamilyMemberInput,
+} from "@/services/familyMembers";
+import { getMyAppointments } from "@/services/appointments";
+import { getCurrentSubscription } from "@/services/subscriptions";
+import { getConsultations } from "@/services/medicalRecords";
+import type { FamilyMember, Appointment, Subscription, ConsultationRecord } from "@/types";
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
 
-  const handleLogout = () => {
-    localStorage.removeItem('userType');
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedPatient, setSelectedPatient] = useState<FamilyMember | null>(null);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+
+  const [patients, setPatients] = useState<FamilyMember[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [recentRecords, setRecentRecords] = useState<ConsultationRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [recordsLoading, setRecordsLoading] = useState(false);
+
+  const loadDashboard = useCallback(async () => {
+    try {
+      const [patientsData, appointmentsData, subData] = await Promise.all([
+        getFamilyMembers(),
+        getMyAppointments(),
+        getCurrentSubscription(),
+      ]);
+      setPatients(patientsData);
+      setAppointments(appointmentsData);
+      setSubscription(subData.subscription);
+      setSelectedPatient((prev) => prev || patientsData.find((p) => p.isSelf) || patientsData[0] || null);
+    } catch (error) {
+      toast({
+        title: "Couldn't load your dashboard",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  // Load recent records for the selected patient whenever it changes (records tab)
+  useEffect(() => {
+    if (!selectedPatient) return;
+    setRecordsLoading(true);
+    getConsultations({ familyMemberId: selectedPatient.isSelf ? undefined : selectedPatient._id })
+      .then((data) => setRecentRecords(data.slice(0, 3)))
+      .catch(() => setRecentRecords([]))
+      .finally(() => setRecordsLoading(false));
+  }, [selectedPatient]);
+
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
-  const [activeTab, setActiveTab] = useState("overview");
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [showPatientSelector, setShowPatientSelector] = useState(false);
-  const [pendingConsultationType, setPendingConsultationType] = useState<'video' | 'chat' | null>(null);
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-
-  const [patients, setPatients] = useState<Patient[]>([
-    {
-      id: "1",
-      name: "John Smith (You)",
-      relationship: "self",
-      age: 35,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: "2",
-      name: "Emma Smith",
-      relationship: "daughter",
-      age: 8,
-      avatar: "/placeholder.svg"
-    },
-    {
-      id: "3",
-      name: "Michael Smith",
-      relationship: "son",
-      age: 12,
-      avatar: "/placeholder.svg"
+  const handleAddPatient = async (input: FamilyMemberInput) => {
+    try {
+      const created = await addFamilyMember(input);
+      setPatients((prev) => [...prev, created]);
+      toast({ title: "Patient added", description: `${created.name} has been added.` });
+    } catch (error) {
+      toast({ title: "Couldn't add patient", description: getErrorMessage(error), variant: "destructive" });
     }
-  ]);
-
-  const [upcomingAppointments] = useState([
-    {
-      id: 1,
-      doctor: "Dr. Sarah Johnson",
-      specialty: "Cardiologist",
-      date: "2024-01-15",
-      time: "10:00 AM",
-      type: "Follow-up",
-      status: "confirmed"
-    },
-    {
-      id: 2,
-      doctor: "Dr. Michael Chen",
-      specialty: "Dermatologist",
-      date: "2024-01-18",
-      time: "2:30 PM",
-      type: "Initial Consultation",
-      status: "pending"
-    }
-  ]);
-
-  const [availableDoctors] = useState([
-    {
-      id: 1,
-      name: "Dr. Sarah Johnson",
-      specialty: "Cardiologist",
-      rating: 4.9,
-      experience: "15 years",
-      avatar: "/placeholder.svg",
-      status: "online"
-    },
-    {
-      id: 2,
-      name: "Dr. Michael Chen",
-      specialty: "Dermatologist",
-      rating: 4.8,
-      experience: "12 years",
-      avatar: "/placeholder.svg",
-      status: "online"
-    },
-    {
-      id: 3,
-      name: "Dr. Emily Rodriguez",
-      specialty: "Pediatrician",
-      rating: 4.9,
-      experience: "10 years",
-      avatar: "/placeholder.svg",
-      status: "busy"
-    }
-  ]);
-
-  const handleStartConsultation = (type: 'video' | 'chat') => {
-    setPendingConsultationType(type);
-    setShowPatientSelector(true);
   };
 
-  const handlePatientSelected = (patient: Patient) => {
+  const handleEditPatient = async (id: string, input: Partial<FamilyMemberInput>) => {
+    try {
+      const updated = await updateFamilyMember(id, input);
+      setPatients((prev) => prev.map((p) => (p._id === id ? updated : p)));
+      if (selectedPatient?._id === id) setSelectedPatient(updated);
+      toast({ title: "Patient updated" });
+    } catch (error) {
+      toast({ title: "Couldn't update patient", description: getErrorMessage(error), variant: "destructive" });
+    }
+  };
+
+  const handleDeletePatient = async (id: string) => {
+    try {
+      await deleteFamilyMember(id);
+      setPatients((prev) => prev.filter((p) => p._id !== id));
+      if (selectedPatient?._id === id) setSelectedPatient(null);
+      toast({ title: "Patient removed" });
+    } catch (error) {
+      toast({ title: "Couldn't remove patient", description: getErrorMessage(error), variant: "destructive" });
+    }
+  };
+
+  const handlePatientSelected = (patient: FamilyMember) => {
     setSelectedPatient(patient);
   };
 
-  const handleProceedToConsultation = () => {
-    setShowPatientSelector(false);
+  const handleStartConsultation = (type: 'video' | 'chat') => {
+    setShowPatientSelector(true);
   };
 
-  const handlePatientsUpdate = (updatedPatients: Patient[]) => {
-    setPatients(updatedPatients);
-  };
+  const upcomingAppointments = appointments
+    .filter((a) => ["pending", "confirmed", "waiting", "in-progress"].includes(a.status))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const nextAppointment = upcomingAppointments[0];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -154,8 +166,8 @@ const PatientDashboard = () => {
                 <span className="hidden sm:inline">Logout</span>
               </Button>
               <Avatar className="w-8 h-8">
-                <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback>JS</AvatarFallback>
+                <AvatarImage src={user?.avatar} />
+                <AvatarFallback>{user ? `${user.firstName[0]}${user.lastName[0]}` : '?'}</AvatarFallback>
               </Avatar>
             </div>
           </div>
@@ -165,7 +177,7 @@ const PatientDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Welcome Section */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, John!</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, {user?.firstName}!</h1>
           <p className="text-gray-600 text-sm sm:text-base">Manage your health consultations and appointments</p>
         </div>
 
@@ -173,21 +185,21 @@ const PatientDashboard = () => {
         {showPatientSelector && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <PatientSelector 
+              <PatientSelector
                 patients={patients}
                 onPatientSelect={handlePatientSelected}
                 selectedPatient={selectedPatient}
               />
               <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-6">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowPatientSelector(false)}
                   className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleProceedToConsultation}
+                <Button
+                  onClick={() => { setShowPatientSelector(false); setActiveTab("request"); }}
                   disabled={!selectedPatient}
                   className="w-full sm:w-auto"
                 >
@@ -205,18 +217,29 @@ const PatientDashboard = () => {
               <CardTitle className="text-sm font-medium text-gray-600">Next Appointment</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-blue-600">Jan 15</div>
-              <p className="text-xs sm:text-sm text-gray-500">Dr. Sarah Johnson</p>
+              {nextAppointment ? (
+                <>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                    {new Date(nextAppointment.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500">Dr. {nextAppointment.doctor.lastName}</p>
+                </>
+              ) : (
+                <>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-400">None</div>
+                  <p className="text-xs sm:text-sm text-gray-500">No upcoming appointments</p>
+                </>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Health Score</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Family Members</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-green-600">85%</div>
-              <p className="text-xs sm:text-sm text-gray-500">Good condition</p>
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{patients.length}</div>
+              <p className="text-xs sm:text-sm text-gray-500">Under your account</p>
             </CardContent>
           </Card>
 
@@ -225,8 +248,8 @@ const PatientDashboard = () => {
               <CardTitle className="text-sm font-medium text-gray-600">Consultations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-purple-600">12</div>
-              <p className="text-xs sm:text-sm text-gray-500">This year</p>
+              <div className="text-xl sm:text-2xl font-bold text-purple-600">{appointments.length}</div>
+              <p className="text-xs sm:text-sm text-gray-500">All time</p>
             </CardContent>
           </Card>
 
@@ -235,8 +258,8 @@ const PatientDashboard = () => {
               <CardTitle className="text-sm font-medium text-gray-600">Current Plan</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-orange-600">Free</div>
-              <p className="text-xs sm:text-sm text-gray-500">2 consultations left</p>
+              <div className="text-xl sm:text-2xl font-bold text-orange-600 capitalize">{subscription?.plan || 'free'}</div>
+              <p className="text-xs sm:text-sm text-gray-500 capitalize">{subscription?.status || 'active'}</p>
             </CardContent>
           </Card>
         </div>
@@ -244,7 +267,7 @@ const PatientDashboard = () => {
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-max grid-cols-6 min-w-full sm:w-full">
+            <TabsList className="grid w-max grid-cols-7 min-w-full sm:w-full">
               <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">
                 <span className="hidden sm:inline">Overview</span>
                 <span className="sm:hidden">Home</span>
@@ -290,16 +313,16 @@ const PatientDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <Button 
-                      className="w-full text-sm" 
+                    <Button
+                      className="w-full text-sm"
                       size="sm"
                       onClick={() => handleStartConsultation('video')}
                     >
                       <Video className="w-4 h-4 mr-2" />
                       Video Call
                     </Button>
-                    <Button 
-                      className="w-full bg-green-600 hover:bg-green-700 text-sm" 
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-sm"
                       size="sm"
                       onClick={() => handleStartConsultation('chat')}
                     >
@@ -319,8 +342,8 @@ const PatientDashboard = () => {
                   <CardDescription className="text-sm">Get quick answers to your health questions</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button 
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-sm" 
+                  <Button
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-sm"
                     size="sm"
                     onClick={() => setIsChatbotOpen(true)}
                   >
@@ -336,23 +359,25 @@ const PatientDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-xl">Subscription Status</CardTitle>
-                  <CardDescription className="text-sm">Manage your plan and billing</CardDescription>
+                  <CardDescription className="text-sm">Manage your plan</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-sm sm:text-base">Free Plan</p>
-                      <p className="text-xs sm:text-sm text-gray-600">2 consultations remaining</p>
+                      <p className="font-medium text-sm sm:text-base capitalize">{subscription?.plan || 'free'} Plan</p>
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        {subscription?.chatConsultationsUsed || 0} chat / {subscription?.videoConsultationsUsed || 0} video used
+                      </p>
                     </div>
-                    <Badge variant="outline">Active</Badge>
+                    <Badge variant="outline" className="capitalize">{subscription?.status || 'active'}</Badge>
                   </div>
-                  <Button 
-                    className="w-full text-sm" 
+                  <Button
+                    className="w-full text-sm"
                     variant="outline"
                     onClick={() => setActiveTab("subscription")}
                   >
                     <CreditCard className="w-4 h-4 mr-2" />
-                    Upgrade Plan
+                    Manage Subscription
                   </Button>
                 </CardContent>
               </Card>
@@ -362,30 +387,35 @@ const PatientDashboard = () => {
                   <CardTitle className="text-lg sm:text-xl">Upcoming Appointments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {upcomingAppointments.slice(0, 2).map((appointment) => (
-                      <div key={appointment.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-gray-50 rounded-lg space-y-2 sm:space-y-0">
-                        <div>
-                          <p className="font-medium text-sm sm:text-base">{appointment.doctor}</p>
-                          <p className="text-xs sm:text-sm text-gray-600">{appointment.date} at {appointment.time}</p>
+                  {upcomingAppointments.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No upcoming appointments</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {upcomingAppointments.slice(0, 2).map((appointment) => (
+                        <div key={appointment._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-gray-50 rounded-lg space-y-2 sm:space-y-0">
+                          <div>
+                            <p className="font-medium text-sm sm:text-base">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">
+                              {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                            </p>
+                          </div>
+                          <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
+                            {appointment.status}
+                          </Badge>
                         </div>
-                        <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
-                          {appointment.status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="request">
-            <DoctorList 
-              onStartVideoCall={() => {}}
-              onStartChat={() => {}}
+            <DoctorList
               selectedPatient={selectedPatient}
               onSelectPatient={() => setShowPatientSelector(true)}
+              onRequestSent={loadDashboard}
             />
           </TabsContent>
 
@@ -396,31 +426,42 @@ const PatientDashboard = () => {
           <TabsContent value="appointments">
             <Card>
               <CardHeader>
-                <CardTitle>Scheduled Appointments</CardTitle>
+                <CardTitle>Your Appointments</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {upcomingAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex justify-between items-center p-4 border rounded-lg">
-                      <div>
-                        <h3 className="font-semibold">{appointment.doctor}</h3>
-                        <p className="text-sm text-gray-600">{appointment.specialty}</p>
-                        <div className="flex items-center mt-1 text-sm text-gray-500">
-                          <Clock className="w-4 h-4 mr-1" />
-                          {appointment.date} at {appointment.time}
+                {appointments.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">
+                    No appointments yet. <Link to="/book-appointment" className="text-blue-600 hover:underline">Book one now</Link>.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {appointments
+                      .slice()
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((appointment) => (
+                        <div key={appointment._id} className="flex justify-between items-center p-4 border rounded-lg">
+                          <div>
+                            <h3 className="font-semibold">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</h3>
+                            <p className="text-sm text-gray-600">{appointment.doctor.specialization}</p>
+                            <div className="flex items-center mt-1 text-sm text-gray-500">
+                              <Clock className="w-4 h-4 mr-1" />
+                              {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
+                              {appointment.status}
+                            </Badge>
+                            {["confirmed", "waiting", "in-progress"].includes(appointment.status) && (
+                              <Link to={`/video-call?appointmentId=${appointment._id}&type=${appointment.type}`}>
+                                <Button size="sm">Join</Button>
+                              </Link>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
-                          {appointment.status}
-                        </Badge>
-                        <Link to="/video-call">
-                          <Button size="sm">Join Call</Button>
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -432,9 +473,8 @@ const PatientDashboard = () => {
                 <CardDescription>Access health history and documents for your family members</CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Patient Selector for Records */}
                 <div className="mb-6">
-                  <PatientSelector 
+                  <PatientSelector
                     patients={patients}
                     onPatientSelect={setSelectedPatient}
                     selectedPatient={selectedPatient}
@@ -442,40 +482,36 @@ const PatientDashboard = () => {
                 </div>
 
                 {selectedPatient ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 border rounded-lg">
-                      <div>
-                        <h3 className="font-medium">Blood Test Results</h3>
-                        <p className="text-sm text-gray-600">January 10, 2024 - {selectedPatient.name}</p>
+                  recordsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {recentRecords.length === 0 ? (
+                        <p className="text-center text-sm text-gray-500 py-4">No records yet for {selectedPatient.name}</p>
+                      ) : (
+                        recentRecords.map((record) => (
+                          <div key={record._id} className="flex justify-between items-center p-4 border rounded-lg">
+                            <div>
+                              <h3 className="font-medium">{record.diagnosis || 'Consultation'}</h3>
+                              <p className="text-sm text-gray-600">
+                                {new Date(record.date).toLocaleDateString()} - Dr. {record.doctor.firstName} {record.doctor.lastName}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      <div className="text-center mt-6">
+                        <Link to={`/medical-records?familyMemberId=${selectedPatient._id}`}>
+                          <Button>
+                            <FileText className="w-4 h-4 mr-2" />
+                            View All Records for {selectedPatient.name}
+                          </Button>
+                        </Link>
                       </div>
-                      <Link to={`/medical-records?patient=${selectedPatient.id}`}>
-                        <Button variant="outline" size="sm">
-                          <FileText className="w-4 h-4 mr-2" />
-                          View
-                        </Button>
-                      </Link>
                     </div>
-                    <div className="flex justify-between items-center p-4 border rounded-lg">
-                      <div>
-                        <h3 className="font-medium">Prescription History</h3>
-                        <p className="text-sm text-gray-600">December 28, 2023 - {selectedPatient.name}</p>
-                      </div>
-                      <Link to={`/medical-records?patient=${selectedPatient.id}`}>
-                        <Button variant="outline" size="sm">
-                          <FileText className="w-4 h-4 mr-2" />
-                          View
-                        </Button>
-                      </Link>
-                    </div>
-                    <div className="text-center mt-6">
-                      <Link to={`/medical-records?patient=${selectedPatient.id}`}>
-                        <Button>
-                          <FileText className="w-4 h-4 mr-2" />
-                          View All Records for {selectedPatient.name}
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+                  )
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-3" />
@@ -487,9 +523,11 @@ const PatientDashboard = () => {
           </TabsContent>
 
           <TabsContent value="patients">
-            <PatientManagement 
+            <PatientManagement
               patients={patients}
-              onPatientsUpdate={handlePatientsUpdate}
+              onAdd={handleAddPatient}
+              onEdit={handleEditPatient}
+              onDelete={handleDeletePatient}
             />
           </TabsContent>
 

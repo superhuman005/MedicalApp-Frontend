@@ -1,57 +1,52 @@
-# Welcome to Medical App 
+# TeleMed Frontend
 
-## Project info
+A React + Vite + TypeScript frontend for **TeleMed**, a telemedicine platform connecting
+patients and doctors. Fully wired to the [TeleMed backend](../backend) (Node.js/Express/MongoDB) -
+no mock or placeholder data remains; everything you see is backed by real API calls.
 
-**URL**: #
+## 1. Setup
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
+cp .env.example .env   # then edit if your backend runs somewhere other than localhost:5000
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Edit `.env`:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+VITE_API_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
+```
 
-**Use GitHub Codespaces**
+Point these at your deployed backend's URL in production (e.g. your Render service).
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The backend must be running (and `CLIENT_URL` on the backend must include this app's origin)
+for anything to work - see the backend's own README for setup.
 
-## What technologies are used for this project?
+## 2. What's wired up
 
-This project is built with:
+- **Auth**: real register/login/logout against `/api/auth/*`, session persisted via JWT and
+  restored on page refresh (`src/context/AuthContext.tsx`).
+- **Patient dashboard**: real family members, appointments, subscription, and an AI health
+  assistant that calls the backend's `/api/ai-chat` endpoint.
+- **Doctor dashboard**: real profile/status management, consultation requests (live via
+  Socket.io), today's schedule, patient list derived from real appointments, earnings, and a
+  monthly consultations chart computed from real appointment data.
+- **Book Appointment**: real doctor list and booking flow (`POST /api/appointments`).
+- **Medical Records**: real consultations, prescriptions, vitals, and lab results, scoped
+  correctly for both the patient's own view and a doctor's view of a patient.
+- **Video calls**: real WebRTC peer connections signaled through the backend's Socket.io
+  events (`video:join`, `video:offer`, `video:answer`, `video:ice-candidate`, ...).
+- **Chat consultations**: real messages persisted via `/api/chat/*` and delivered live over
+  Socket.io.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 3. Building for production
 
+```bash
+npm run build
+```
+
+Outputs to `dist/`. Deploy it to any static host (Vercel, Netlify, etc.) with `VITE_API_URL`
+and `VITE_SOCKET_URL` set as environment variables at build time, pointing at your deployed
+backend.

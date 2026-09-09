@@ -2,18 +2,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, Send, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Patient {
-  id: string;
-  name: string;
-  relationship: string;
-  age?: number;
-}
+import { sendAiChatMessage } from "@/services/aiChat";
+import { getErrorMessage } from "@/services/api";
+import type { FamilyMember } from "@/types";
 
 interface Message {
   id: string;
@@ -23,7 +19,7 @@ interface Message {
 }
 
 interface AIChatbotProps {
-  selectedPatient: Patient | null;
+  selectedPatient: FamilyMember | null;
 }
 
 const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
@@ -46,45 +42,6 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
     }
   }, [messages]);
 
-  const generateAIResponse = async (userMessage: string): Promise<string> => {
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
-    // Simple keyword-based responses for demonstration
-    const lowerMessage = userMessage.toLowerCase();
-    
-    if (lowerMessage.includes('headache') || lowerMessage.includes('head pain')) {
-      return 'For headaches, consider these general tips: stay hydrated, get adequate rest, manage stress, and maintain regular meals. If headaches persist, are severe, or are accompanied by other symptoms like fever, vision changes, or neck stiffness, please consult with a healthcare professional immediately.';
-    }
-    
-    if (lowerMessage.includes('fever') || lowerMessage.includes('temperature')) {
-      return 'For fever management: rest, stay hydrated with plenty of fluids, and monitor your temperature. Adults can consider over-the-counter fever reducers if appropriate. Seek immediate medical attention if fever is over 103°F (39.4°C), persists for more than 3 days, or is accompanied by severe symptoms.';
-    }
-    
-    if (lowerMessage.includes('cold') || lowerMessage.includes('cough') || lowerMessage.includes('sore throat')) {
-      return 'For cold symptoms: get plenty of rest, stay hydrated, use a humidifier, and consider warm salt water gargles for sore throat. Most colds resolve within 7-10 days. Consult a healthcare provider if symptoms worsen or persist beyond 10 days.';
-    }
-    
-    if (lowerMessage.includes('medication') || lowerMessage.includes('medicine') || lowerMessage.includes('drug')) {
-      return 'For medication questions, I recommend consulting with your healthcare provider or pharmacist who can provide personalized advice based on your medical history. Always follow prescribed dosages and read medication labels carefully.';
-    }
-    
-    if (lowerMessage.includes('diet') || lowerMessage.includes('nutrition') || lowerMessage.includes('food')) {
-      return 'A balanced diet includes plenty of fruits, vegetables, whole grains, lean proteins, and adequate hydration. For personalized nutrition advice, consider consulting with a registered dietitian or your healthcare provider.';
-    }
-    
-    if (lowerMessage.includes('exercise') || lowerMessage.includes('workout')) {
-      return 'Regular physical activity is important for overall health. The general recommendation is 150 minutes of moderate aerobic activity per week, plus strength training exercises. Always consult your healthcare provider before starting a new exercise program, especially if you have health conditions.';
-    }
-    
-    if (lowerMessage.includes('emergency') || lowerMessage.includes('urgent')) {
-      return 'If this is a medical emergency, please call emergency services (911) immediately or go to the nearest emergency room. For urgent but non-emergency concerns, contact your healthcare provider or visit an urgent care center.';
-    }
-    
-    // Default response
-    return 'Thank you for your question. While I can provide general health information, I recommend consulting with a healthcare professional for personalized medical advice. They can properly evaluate your specific situation and provide appropriate guidance. Is there anything else I can help you with regarding general health information?';
-  };
-
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
 
@@ -95,17 +52,19 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
       timestamp: new Date()
     };
 
+    const history = messages.map((m) => ({ role: m.type, content: m.content }));
+
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
 
     try {
-      const aiResponse = await generateAIResponse(userMessage.content);
-      
+      const reply = await sendAiChatMessage(userMessage.content, history);
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: aiResponse,
+        content: reply,
         timestamp: new Date()
       };
 
@@ -113,7 +72,7 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        description: getErrorMessage(error, "Failed to get AI response. Please try again."),
         variant: "destructive"
       });
     } finally {
@@ -170,7 +129,7 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
                       : 'bg-gray-100 text-gray-900'
                   }`}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   <p className="text-xs mt-1 opacity-70">
                     {message.timestamp.toLocaleTimeString([], { 
                       hour: '2-digit', 

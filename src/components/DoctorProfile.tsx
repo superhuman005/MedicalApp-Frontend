@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,37 +8,55 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Settings, User } from "lucide-react";
+import { Settings, Loader2 } from "lucide-react";
+import type { User, DoctorStatus } from "@/types";
 
 interface DoctorProfileProps {
-  doctor: {
-    name: string;
-    specialty: string;
-    experience: string;
-    bio: string;
-    avatar: string;
-    status: 'online' | 'offline' | 'busy' | 'available';
-  };
-  onProfileUpdate: (updatedDoctor: any) => void;
-  onStatusChange: (status: 'online' | 'offline' | 'busy' | 'available') => void;
+  doctor: User;
+  onProfileUpdate: (updates: {
+    bio?: string;
+    specialization?: string;
+    yearsOfExperience?: number;
+    avatar?: string;
+  }) => Promise<void>;
+  onStatusChange: (status: DoctorStatus) => Promise<void>;
 }
 
 const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfileProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    name: doctor.name,
-    specialty: doctor.specialty,
-    experience: doctor.experience,
-    bio: doctor.bio,
-    avatar: doctor.avatar
+    specialization: doctor.specialization || "",
+    yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
+    bio: doctor.bio || "",
+    avatar: doctor.avatar || "",
   });
 
-  const handleSave = () => {
-    onProfileUpdate(formData);
-    setIsOpen(false);
+  useEffect(() => {
+    setFormData({
+      specialization: doctor.specialization || "",
+      yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
+      bio: doctor.bio || "",
+      avatar: doctor.avatar || "",
+    });
+  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onProfileUpdate({
+        specialization: formData.specialization,
+        yearsOfExperience: formData.yearsOfExperience ? Number(formData.yearsOfExperience) : undefined,
+        bio: formData.bio,
+        avatar: formData.avatar,
+      });
+      setIsOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'online':
       case 'available':
@@ -52,7 +70,7 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status?: string) => {
     switch (status) {
       case 'online':
         return 'Online';
@@ -67,13 +85,18 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
     }
   };
 
+  const fullName = `${doctor.firstName} ${doctor.lastName}`;
+  const experienceLabel = doctor.yearsOfExperience
+    ? `${doctor.yearsOfExperience} year${doctor.yearsOfExperience === 1 ? '' : 's'} experience`
+    : 'Experience not set';
+
   return (
     <div className="flex items-center space-x-4">
       <div className="relative">
         <Avatar className="w-16 h-16">
           <AvatarImage src={doctor.avatar} />
           <AvatarFallback>
-            {doctor.name.split(' ').map(n => n[0]).join('')}
+            {fullName.split(' ').map(n => n[0]).join('')}
           </AvatarFallback>
         </Avatar>
         <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(doctor.status)} rounded-full border-2 border-white`}></div>
@@ -81,15 +104,15 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
       
       <div className="flex-1">
         <div className="flex items-center space-x-2 mb-1">
-          <h1 className="text-3xl font-bold text-gray-900">Good morning, {doctor.name}!</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome, Dr. {doctor.lastName}!</h1>
           <Badge variant="outline" className="text-xs">
             {getStatusText(doctor.status)}
           </Badge>
         </div>
-        <p className="text-gray-600 mb-2">{doctor.specialty} • {doctor.experience}</p>
+        <p className="text-gray-600 mb-2">{doctor.specialization || 'Specialty not set'} • {experienceLabel}</p>
         
         <div className="flex items-center space-x-2">
-          <Select value={doctor.status} onValueChange={onStatusChange}>
+          <Select value={doctor.status} onValueChange={(value) => onStatusChange(value as DoctorStatus)}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -111,40 +134,31 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
               <DialogHeader>
                 <DialogTitle>Edit Profile</DialogTitle>
                 <DialogDescription>
-                  Update your profile information and settings.
+                  Update your professional information. Your name and email are managed on the Account settings.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="col-span-3"
-                  />
-                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="specialty" className="text-right">
                     Specialty
                   </Label>
                   <Input
                     id="specialty"
-                    value={formData.specialty}
-                    onChange={(e) => setFormData({...formData, specialty: e.target.value})}
+                    value={formData.specialization}
+                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
                     className="col-span-3"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="experience" className="text-right">
-                    Experience
+                    Years Exp.
                   </Label>
                   <Input
                     id="experience"
-                    value={formData.experience}
-                    onChange={(e) => setFormData({...formData, experience: e.target.value})}
+                    type="number"
+                    min={0}
+                    value={formData.yearsOfExperience}
+                    onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
                     className="col-span-3"
                   />
                 </div>
@@ -155,7 +169,7 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
                   <Input
                     id="avatar"
                     value={formData.avatar}
-                    onChange={(e) => setFormData({...formData, avatar: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
                     className="col-span-3"
                   />
                 </div>
@@ -166,17 +180,18 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
                   <Textarea
                     id="bio"
                     value={formData.bio}
-                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     className="col-span-3"
                     rows={3}
                   />
                 </div>
               </div>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsOpen(false)}>
+                <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Save Changes
                 </Button>
               </div>

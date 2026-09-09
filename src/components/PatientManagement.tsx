@@ -3,79 +3,78 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Edit, User, Baby, Heart, Trash2 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Plus, Edit, User, Baby, Heart, Trash2, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-interface Patient {
-  id: string;
-  name: string;
-  relationship: string;
-  age?: number;
-  avatar?: string;
-}
+import type { FamilyMember } from "@/types";
+import type { FamilyMemberInput } from "@/services/familyMembers";
 
 interface PatientManagementProps {
-  patients: Patient[];
-  onPatientsUpdate: (patients: Patient[]) => void;
+  patients: FamilyMember[];
+  onAdd: (input: FamilyMemberInput) => Promise<void>;
+  onEdit: (id: string, input: Partial<FamilyMemberInput>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
-const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProps) => {
-  const [isAddingPatient, setIsAddingPatient] = useState(false);
-  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
-  const [patientForm, setPatientForm] = useState({
-    name: "",
-    relationship: "",
-    age: ""
-  });
+const emptyForm = { name: "", relationship: "", age: "" };
 
-  const handleAddPatient = () => {
-    if (patientForm.name && patientForm.relationship) {
-      const newPatient: Patient = {
-        id: Date.now().toString(),
+const PatientManagement = ({ patients, onAdd, onEdit, onDelete }: PatientManagementProps) => {
+  const [isAddingPatient, setIsAddingPatient] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<FamilyMember | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [patientForm, setPatientForm] = useState(emptyForm);
+
+  const handleAddPatient = async () => {
+    if (!patientForm.name || !patientForm.relationship) return;
+    setIsSubmitting(true);
+    try {
+      await onAdd({
         name: patientForm.name,
         relationship: patientForm.relationship,
         age: patientForm.age ? parseInt(patientForm.age) : undefined,
-        avatar: "/placeholder.svg"
-      };
-      onPatientsUpdate([...patients, newPatient]);
-      setPatientForm({ name: "", relationship: "", age: "" });
+      });
+      setPatientForm(emptyForm);
       setIsAddingPatient(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleEditPatient = (patient: Patient) => {
+  const handleEditPatient = (patient: FamilyMember) => {
     setEditingPatient(patient);
     setPatientForm({
       name: patient.name,
       relationship: patient.relationship,
-      age: patient.age?.toString() || ""
+      age: patient.age?.toString() || "",
     });
   };
 
-  const handleSaveEdit = () => {
-    if (editingPatient && patientForm.name && patientForm.relationship) {
-      const updatedPatients = patients.map(p => 
-        p.id === editingPatient.id 
-          ? {
-              ...p,
-              name: patientForm.name,
-              relationship: patientForm.relationship,
-              age: patientForm.age ? parseInt(patientForm.age) : undefined
-            }
-          : p
-      );
-      onPatientsUpdate(updatedPatients);
+  const handleSaveEdit = async () => {
+    if (!editingPatient || !patientForm.name || !patientForm.relationship) return;
+    setIsSubmitting(true);
+    try {
+      await onEdit(editingPatient._id, {
+        name: patientForm.name,
+        relationship: patientForm.relationship,
+        age: patientForm.age ? parseInt(patientForm.age) : undefined,
+      });
       setEditingPatient(null);
-      setPatientForm({ name: "", relationship: "", age: "" });
+      setPatientForm(emptyForm);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeletePatient = (patientId: string) => {
-    const updatedPatients = patients.filter(p => p.id !== patientId);
-    onPatientsUpdate(updatedPatients);
+  const handleDeletePatient = async (patientId: string) => {
+    setDeletingId(patientId);
+    try {
+      await onDelete(patientId);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getPatientIcon = (relationship: string) => {
@@ -100,7 +99,7 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
       <CardContent>
         <div className="space-y-4">
           {patients.map((patient) => (
-            <div key={patient.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+            <div key={patient._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
               <div className="flex items-center space-x-3">
                 <Avatar className="w-12 h-12">
                   <AvatarImage src={patient.avatar} />
@@ -128,14 +127,19 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
                   <Edit className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
-                {patient.relationship !== "self" && (
+                {!patient.isSelf && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDeletePatient(patient.id)}
+                    onClick={() => handleDeletePatient(patient._id)}
+                    disabled={deletingId === patient._id}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {deletingId === patient._id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                   </Button>
                 )}
               </div>
@@ -158,7 +162,7 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
             <DialogHeader>
               <DialogTitle>Add New Patient</DialogTitle>
               <DialogDescription>
-                Add a family member or yourself to manage consultations
+                Add a family member to manage their consultations. Limits depend on your subscription plan.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -181,7 +185,6 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
                     <SelectValue placeholder="Select relationship" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="self">Self</SelectItem>
                     <SelectItem value="spouse">Spouse</SelectItem>
                     <SelectItem value="son">Son</SelectItem>
                     <SelectItem value="daughter">Daughter</SelectItem>
@@ -202,10 +205,11 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
                 />
               </div>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsAddingPatient(false)}>
+                <Button variant="outline" onClick={() => setIsAddingPatient(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddPatient}>
+                <Button onClick={handleAddPatient} disabled={isSubmitting || !patientForm.name || !patientForm.relationship}>
+                  {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Add Patient
                 </Button>
               </div>
@@ -214,7 +218,7 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
         </Dialog>
 
         {/* Edit Patient Dialog */}
-        <Dialog open={!!editingPatient} onOpenChange={() => setEditingPatient(null)}>
+        <Dialog open={!!editingPatient} onOpenChange={(open) => !open && setEditingPatient(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Patient</DialogTitle>
@@ -237,6 +241,7 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
                 <Select
                   value={patientForm.relationship}
                   onValueChange={(value) => setPatientForm({ ...patientForm, relationship: value })}
+                  disabled={editingPatient?.isSelf}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select relationship" />
@@ -263,10 +268,11 @@ const PatientManagement = ({ patients, onPatientsUpdate }: PatientManagementProp
                 />
               </div>
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setEditingPatient(null)}>
+                <Button variant="outline" onClick={() => setEditingPatient(null)} disabled={isSubmitting}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdit}>
+                <Button onClick={handleSaveEdit} disabled={isSubmitting || !patientForm.name || !patientForm.relationship}>
+                  {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Save Changes
                 </Button>
               </div>

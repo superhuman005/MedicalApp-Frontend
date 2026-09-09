@@ -2,32 +2,21 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, Users, RefreshCw, Clock, Send } from "lucide-react";
+import { MessageSquare, Users, RefreshCw, Clock, Send, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-
-interface Doctor {
-  id: number;
-  name: string;
-  specialty: string;
-  rating: number;
-  experience: string;
-  avatar: string;
-  status: 'online' | 'busy' | 'offline';
-  bio?: string;
-  consultationFee?: number;
-}
+import { createConsultationRequest } from "@/services/consultationRequests";
+import { getErrorMessage } from "@/services/api";
+import type { FamilyMember } from "@/types";
 
 interface DoctorListProps {
-  onStartVideoCall: (doctor: Doctor) => void;
-  onStartChat: (doctor: Doctor) => void;
-  selectedPatient: any;
+  selectedPatient: FamilyMember | null;
   onSelectPatient?: () => void;
+  onRequestSent?: () => void;
 }
 
-const DoctorList = ({ selectedPatient, onSelectPatient }: DoctorListProps) => {
+const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorListProps) => {
   const [consultationType, setConsultationType] = useState<'video' | 'chat' | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [requestMessage, setRequestMessage] = useState('');
@@ -38,19 +27,31 @@ const DoctorList = ({ selectedPatient, onSelectPatient }: DoctorListProps) => {
     if (!selectedPatient || !consultationType) return;
 
     setIsSubmitting(true);
-    
-    // Simulate API call to notify doctors
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Consultation Request Sent",
-      description: `A ${consultationType} consultation request has been sent to available doctors. You will be notified when a doctor accepts your request.`,
-    });
+    try {
+      await createConsultationRequest({
+        type: consultationType,
+        urgency: urgencyLevel,
+        message: requestMessage || undefined,
+        familyMemberId: selectedPatient._id,
+      });
 
-    // Reset form
-    setConsultationType(null);
-    setRequestMessage('');
-    setIsSubmitting(false);
+      toast({
+        title: "Consultation Request Sent",
+        description: `A ${consultationType} consultation request has been sent to available doctors. You will be notified when a doctor accepts your request.`,
+      });
+
+      setConsultationType(null);
+      setRequestMessage('');
+      onRequestSent?.();
+    } catch (error) {
+      toast({
+        title: "Couldn't send request",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -177,7 +178,7 @@ const DoctorList = ({ selectedPatient, onSelectPatient }: DoctorListProps) => {
                 >
                   {isSubmitting ? (
                     <>
-                      <Clock className="w-5 h-5 mr-2 animate-spin" />
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Sending Request...
                     </>
                   ) : (
@@ -197,7 +198,6 @@ const DoctorList = ({ selectedPatient, onSelectPatient }: DoctorListProps) => {
                     <li>• Your request will be sent to available doctors</li>
                     <li>• You'll receive a notification when a doctor accepts</li>
                     <li>• The consultation will begin once matched</li>
-                    <li>• Expected wait time: 5-15 minutes</li>
                   </ul>
                 </div>
               </div>

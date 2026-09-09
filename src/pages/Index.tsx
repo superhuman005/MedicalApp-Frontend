@@ -3,8 +3,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, Calendar, FileText, MessageSquare, Shield, Clock } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
+  const { user } = useAuth();
+  const dashboardPath = user?.role === "doctor" ? "/doctor-dashboard" : "/patient-dashboard";
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Header */}
@@ -20,12 +24,20 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/login">
-                <Button variant="outline">Login</Button>
-              </Link>
-              <Link to="/signup">
-                <Button>Get Started</Button>
-              </Link>
+              {user ? (
+                <Link to={dashboardPath}>
+                  <Button>Go to Dashboard</Button>
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button variant="outline">Login</Button>
+                  </Link>
+                  <Link to="/signup">
+                    <Button>Get Started</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -43,16 +55,26 @@ const Index = () => {
             Get the care you need, when you need it, from the comfort of your home.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/patient-dashboard">
-              <Button size="lg" className="w-full sm:w-auto">
-                Start Consultation
-              </Button>
-            </Link>
-            <Link to="/doctor-dashboard">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                I'm a Doctor
-              </Button>
-            </Link>
+            {user ? (
+              <Link to={dashboardPath}>
+                <Button size="lg" className="w-full sm:w-auto">
+                  Go to Your Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/signup">
+                  <Button size="lg" className="w-full sm:w-auto">
+                    Start Consultation
+                  </Button>
+                </Link>
+                <Link to="/signup">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    I'm a Doctor
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -189,7 +211,7 @@ const Index = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 TeleMed. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} TeleMed. All rights reserved.</p>
           </div>
         </div>
       </footer>

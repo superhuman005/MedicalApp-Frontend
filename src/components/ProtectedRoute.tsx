@@ -1,37 +1,33 @@
-
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedUserType?: 'patient' | 'doctor';
+  allowedUserType?: "patient" | "doctor";
 }
 
 const ProtectedRoute = ({ children, allowedUserType }: ProtectedRouteProps) => {
-  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    const userType = localStorage.getItem('userType');
-    
-    if (!userType) {
-      navigate('/login');
-      return;
-    }
-
-    if (allowedUserType && userType !== allowedUserType) {
-      navigate('/login');
-      return;
-    }
-  }, [navigate, allowedUserType]);
-
-  const userType = localStorage.getItem('userType');
-  
-  if (!userType) {
-    return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
   }
 
-  if (allowedUserType && userType !== allowedUserType) {
-    return null;
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedUserType && user.role !== allowedUserType) {
+    // Logged in, but as the wrong role for this route - send them to their
+    // own dashboard instead of bouncing them back to /login.
+    const redirectTo = user.role === "doctor" ? "/doctor-dashboard" : "/patient-dashboard";
+    return <Navigate to={redirectTo} replace />;
   }
 
   return <>{children}</>;

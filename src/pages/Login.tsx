@@ -6,75 +6,67 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Video, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Video, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import API from "@/services/api";
-import { AxiosError } from "axios";
+import { useAuth } from "@/context/AuthContext";
+import { getErrorMessage } from "@/services/api";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [patientData, setPatientData] = useState({ email: "", password: "" });
   const [doctorData, setDoctorData] = useState({ email: "", password: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
 
- const handlePatientLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handlePatientLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  try {
-    const res = await API.post("/auth/login", {
-      email: patientData.email,
-      password: patientData.password,
-      role: "patient", // important if your backend supports roles
-    });
+    try {
+      await login(patientData.email, patientData.password, "patient");
 
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("userType", "patient");
+      toast({
+        title: "Login Successful",
+        description: "Welcome back! Redirecting...",
+      });
 
-    toast({
-      title: "Login Successful",
-      description: "Welcome back! Redirecting...",
-    });
+      navigate("/patient-dashboard");
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: getErrorMessage(error, "Invalid credentials"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-    setTimeout(() => navigate("/patient-dashboard"), 1000);
+  const handleDoctorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  } catch (error: any ) {
-    toast({
-      title: "Login Failed",
-      description: error.response?.data?.message || "Invalid credentials",
-      variant: "destructive",
-    });
-  }
-};
+    try {
+      await login(doctorData.email, doctorData.password, "doctor");
 
-const handleDoctorLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
+      toast({
+        title: "Login Successful",
+        description: "Welcome back Doctor!",
+      });
 
-  try {
-    const res = await API.post("/auth/login", {
-      email: doctorData.email,
-      password: doctorData.password,
-      role: "doctor",
-    });
-
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("userType", "doctor");
-
-    toast({
-      title: "Login Successful",
-      description: "Welcome back Doctor!",
-    });
-
-    setTimeout(() => navigate("/doctor-dashboard"), 1000);
-
-  } catch (error: any) {
-    toast({
-      title: "Login Failed",
-      description: error.response?.data?.message || "Invalid credentials",
-      variant: "destructive",
-    });
-  }
-};
+      navigate("/doctor-dashboard");
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: getErrorMessage(error, "Invalid credentials"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
@@ -149,7 +141,8 @@ const handleDoctorLogin = async (e: React.FormEvent) => {
                       </Button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Sign In as Patient
                   </Button>
                 </form>
@@ -190,7 +183,8 @@ const handleDoctorLogin = async (e: React.FormEvent) => {
                       </Button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Sign In as Doctor
                   </Button>
                 </form>

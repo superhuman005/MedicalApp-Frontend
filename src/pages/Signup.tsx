@@ -6,14 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Video, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Video, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import API from "@/services/api";
-import { AxiosError } from "axios";
+import { useAuth } from "@/context/AuthContext";
+import { getErrorMessage } from "@/services/api";
 
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [patientData, setPatientData] = useState({
     firstName: "",
     lastName: "",
@@ -35,91 +35,90 @@ const Signup = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { register } = useAuth();
 
-const handlePatientSignup = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handlePatientSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (patientData.password !== patientData.confirmPassword) {
-    toast({
-      title: "Error",
-      description: "Passwords don't match",
-      variant: "destructive",
-    });
-    return;
-  }
+    if (patientData.password !== patientData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords don't match",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  try {
-    const res = await API.post("/auth/register", {
-      firstName: patientData.firstName,
-      lastName: patientData.lastName,
-      email: patientData.email,
-      phone: patientData.phone,
-      password: patientData.password,
-      role: "patient",
-    });
+    setIsSubmitting(true);
+    try {
+      await register({
+        firstName: patientData.firstName,
+        lastName: patientData.lastName,
+        email: patientData.email,
+        phone: patientData.phone,
+        password: patientData.password,
+        role: "patient",
+      });
 
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("userType", "patient");
+      toast({
+        title: "Account Created Successfully",
+        description: "Welcome to TeleMed!",
+      });
 
-    toast({
-      title: "Account Created Successfully",
-      description: "Welcome to TeleMed!",
-    });
+      navigate("/patient-dashboard");
+    } catch (error) {
+      toast({
+        title: "Signup Failed",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-    setTimeout(() => navigate("/patient-dashboard"), 1000);
+  const handleDoctorSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  } catch (error: any) {
-    toast({
-      title: "Signup Failed",
-      description: error.response?.data?.message || "Something went wrong",
-      variant: "destructive",
-    });
-  }
-};
+    if (doctorData.password !== doctorData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords don't match",
+        variant: "destructive",
+      });
+      return;
+    }
 
-const handleDoctorSignup = async (e: React.FormEvent) => {
-  e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await register({
+        firstName: doctorData.firstName,
+        lastName: doctorData.lastName,
+        email: doctorData.email,
+        phone: doctorData.phone,
+        specialization: doctorData.specialty,
+        medicalLicenseNumber: doctorData.licenseNumber,
+        yearsOfExperience: Number(doctorData.experience),
+        password: doctorData.password,
+        role: "doctor",
+      });
 
-  if (doctorData.password !== doctorData.confirmPassword) {
-    toast({
-      title: "Error",
-      description: "Passwords don't match",
-      variant: "destructive",
-    });
-    return;
-  }
+      toast({
+        title: "Account Created Successfully",
+        description: "Welcome Doctor!",
+      });
 
-  try {
-    const res = await API.post("/auth/register", {
-      firstName: doctorData.firstName,
-      lastName: doctorData.lastName,
-      email: doctorData.email,
-      phone: doctorData.phone,
-      specialization: doctorData.specialty,
-      medicalLicenseNumber: doctorData.licenseNumber,
-      yearsOfExperience: Number(doctorData.experience),
-      password: doctorData.password,
-      role: "doctor",
-    });
-
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("userType", "doctor");
-
-    toast({
-      title: "Account Created Successfully",
-      description: "Welcome Doctor!",
-    });
-
-    setTimeout(() => navigate("/doctor-dashboard"), 1000);
-
-  } catch (error: any) {
-    toast({
-      title: "Signup Failed",
-      description: error.response?.data?.message || "Something went wrong",
-      variant: "destructive",
-    });
-  }
-};
+      navigate("/doctor-dashboard");
+    } catch (error) {
+      toast({
+        title: "Signup Failed",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -237,7 +236,8 @@ const handleDoctorSignup = async (e: React.FormEvent) => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Create Patient Account
                   </Button>
                 </form>
@@ -353,7 +353,8 @@ const handleDoctorSignup = async (e: React.FormEvent) => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Create Doctor Account
                   </Button>
                 </form>
