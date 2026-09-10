@@ -74,7 +74,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(adminData.email, adminData.password, "admin");
+      await login(adminData.email, adminData.password);
 
       toast({
         title: "Login Successful",

@@ -1,7 +1,7 @@
 // Shared types mirroring the backend's Mongoose models / API responses.
 // Keep these in sync with the backend's src/models and src/controllers.
 
-export type UserRole = "patient" | "doctor" | "admin";
+export type UserRole = "patient" | "doctor" | "admin" | "superadmin";
 export type DoctorStatus = "online" | "offline" | "busy" | "available";
 export type DoctorApprovalStatus = "pending" | "approved" | "rejected";
 

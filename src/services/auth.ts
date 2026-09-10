@@ -27,7 +27,7 @@ export const registerRequest = async (input: RegisterInput): Promise<AuthRespons
 export const loginRequest = async (
   email: string,
   password: string,
-  role?: "patient" | "doctor" | "admin"
+  role?: "patient" | "doctor" | "admin" | "superadmin"
 ): Promise<AuthResponse> => {
   const { data } = await API.post("/auth/login", { email, password, role });
   return { token: data.token, user: data.user };

@@ -51,8 +51,11 @@ for anything to work - see the backend's own README for setup.
   marked complete.
 - **Admin dashboard**: a third portal (`/admin-dashboard`, log in via the "Admin" tab on
   `/login`) showing platform-wide stats, pending doctor approvals, doctor recommendations,
-  all appointments, users, and payments. Admin accounts aren't self-registrable - see the
-  backend README for how to create one (the seed script creates `admin@telemed.test`).
+  all appointments, users, and payments. There are two admin roles: `admin` can see
+  everything but not approve doctors; `superadmin` can additionally approve/reject doctor
+  applications (the UI hides those buttons for plain admins). Neither is self-registrable -
+  see the backend README for how to create them (the seed script creates
+  `admin@telemed.test` and `superadmin@telemed.test`).
 
 ## 3. Building for production
 

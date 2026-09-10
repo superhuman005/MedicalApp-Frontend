@@ -7,7 +7,7 @@ import { getErrorMessage } from "@/services/api";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string, role?: "patient" | "doctor" | "admin") => Promise<User>;
+  login: (email: string, password: string, role?: "patient" | "doctor" | "admin" | "superadmin") => Promise<User>;
   register: (input: RegisterInput) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })();
   }, []);
 
-  const login = useCallback(async (email: string, password: string, role?: "patient" | "doctor" | "admin") => {
+  const login = useCallback(async (email: string, password: string, role?: "patient" | "doctor" | "admin" | "superadmin") => {
     const { token, user: loggedInUser } = await loginRequest(email, password, role);
     persistSession(token, loggedInUser);
     connectSocket(token);

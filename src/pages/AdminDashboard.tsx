@@ -34,6 +34,7 @@ const nairaFormatter = new Intl.NumberFormat("en-NG", {
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
+  const isSuperAdmin = user?.role === "superadmin";
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -142,12 +143,17 @@ const AdminDashboard = () => {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center">
-              <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-                <Video className="w-5 h-5 text-white" />
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">TeleMed Admin</span>
-            </Link>
+            <div className="flex items-center">
+              <Link to="/" className="flex items-center">
+                <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+                  <Video className="w-5 h-5 text-white" />
+                </div>
+                <span className="ml-2 text-xl font-bold text-gray-900">TeleMed Admin</span>
+              </Link>
+              <Badge variant="outline" className="ml-3 capitalize">
+                {user.role === "superadmin" ? "Super Admin" : "Admin"}
+              </Badge>
+            </div>
             <div className="flex items-center space-x-4">
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
@@ -230,7 +236,10 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Doctor Approvals</CardTitle>
-                <CardDescription>New doctor sign-ups awaiting review before they can go live</CardDescription>
+                <CardDescription>
+                  New doctor sign-ups awaiting review before they can go live
+                  {!isSuperAdmin && " (view only - super admin access required to approve/reject)"}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {pendingDoctors.length === 0 ? (
@@ -249,26 +258,32 @@ const AdminDashboard = () => {
                             <p className="text-xs text-gray-500">License: {doctor.medicalLicenseNumber} • {doctor.yearsOfExperience} yrs experience</p>
                           </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
-                            onClick={() => handleReject(doctor._id)}
-                            disabled={actingOnId === doctor._id}
-                          >
-                            <XCircle className="w-4 h-4 mr-1" />Reject
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() => handleApprove(doctor._id)}
-                            disabled={actingOnId === doctor._id}
-                          >
-                            {actingOnId === doctor._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
-                            Approve
-                          </Button>
-                        </div>
+                        {isSuperAdmin ? (
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              onClick={() => handleReject(doctor._id)}
+                              disabled={actingOnId === doctor._id}
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleApprove(doctor._id)}
+                              disabled={actingOnId === doctor._id}
+                            >
+                              {actingOnId === doctor._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                              Approve
+                            </Button>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                            Awaiting super admin
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>
