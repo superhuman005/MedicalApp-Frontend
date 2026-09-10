@@ -167,7 +167,7 @@ const PatientDashboard = () => {
               </Button>
               <Avatar className="w-8 h-8">
                 <AvatarImage src={user?.avatar} />
-                <AvatarFallback>{user ? `${user.firstName[0]}${user.lastName[0]}` : '?'}</AvatarFallback>
+                <AvatarFallback>{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || '?'}</AvatarFallback>
               </Avatar>
             </div>
           </div>
