@@ -2,10 +2,27 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { Video, Calendar, FileText, Users, Clock, MessageSquare, LogOut, Bot, CreditCard, Loader2 } from "lucide-react";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import {
+  Video, CalendarDays, FileText, Users, Clock, MessageSquare, LogOut, Bot,
+  CreditCard, Loader2, Stethoscope, LayoutGrid, ChevronRight,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import PatientSubscription from "@/components/PatientSubscription";
 import PatientSelector from "@/components/PatientSelector";
@@ -27,12 +44,34 @@ import { getCurrentSubscription } from "@/services/subscriptions";
 import { getConsultations } from "@/services/medicalRecords";
 import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord } from "@/types";
 
+type SectionKey = "overview" | "request" | "ai-chat" | "appointments" | "records" | "patients" | "subscription";
+
+const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof LayoutGrid }[] = [
+  { key: "overview", label: "Overview", icon: LayoutGrid },
+  { key: "request", label: "Request Care", icon: Stethoscope },
+  { key: "ai-chat", label: "AI Assistant", icon: Bot },
+  { key: "appointments", label: "Appointments", icon: CalendarDays },
+  { key: "records", label: "Records", icon: FileText },
+  { key: "patients", label: "Patients", icon: Users },
+  { key: "subscription", label: "Subscription", icon: CreditCard },
+];
+
+const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
+  overview: { title: "Overview", subtitle: "A quick look at your care" },
+  request: { title: "Request Care", subtitle: "Get matched with an available doctor" },
+  "ai-chat": { title: "AI Assistant", subtitle: "Ask about symptoms or medications" },
+  appointments: { title: "Appointments", subtitle: "Everything you've booked" },
+  records: { title: "Medical Records", subtitle: "Your family's health history" },
+  patients: { title: "Patients", subtitle: "Manage who's covered on your account" },
+  subscription: { title: "Subscription", subtitle: "Plan, usage, and billing" },
+};
+
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState<SectionKey>("overview");
   const [selectedPatient, setSelectedPatient] = useState<FamilyMember | null>(null);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
@@ -123,7 +162,7 @@ const PatientDashboard = () => {
     setSelectedPatient(patient);
   };
 
-  const handleStartConsultation = (type: 'video' | 'chat') => {
+  const handleStartConsultation = (_type: 'video' | 'chat') => {
     setShowPatientSelector(true);
   };
 
@@ -132,422 +171,451 @@ const PatientDashboard = () => {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const nextAppointment = upcomingAppointments[0];
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || '?';
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Video className="w-5 h-5 text-white" />
-                </div>
-                <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">TeleMed</span>
-              </Link>
+    <SidebarProvider>
+      <Sidebar collapsible="icon" className="border-sidebar-border">
+        <SidebarHeader className="px-3 py-4">
+          <Link to="/" className="flex items-center gap-2 px-1">
+            <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
+              <Video className="w-[18px] h-[18px] text-sidebar-primary-foreground" />
             </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link to="/book-appointment" className="hidden sm:block">
-                <Button variant="outline" size="sm">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <span className="hidden md:inline">Book Appointment</span>
-                  <span className="md:hidden">Book</span>
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
-              <Avatar className="w-8 h-8">
+            <span className="font-display font-semibold text-sidebar-foreground text-lg tracking-tight group-data-[collapsible=icon]:hidden">
+              TeleMed
+            </span>
+          </Link>
+        </SidebarHeader>
+
+        <SidebarContent className="px-2">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {NAV_ITEMS.map((item) => (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      isActive={activeTab === item.key}
+                      onClick={() => setActiveTab(item.key)}
+                      tooltip={item.label}
+                      className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium relative data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary"
+                    >
+                      <item.icon className="shrink-0" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="px-2 pb-3">
+          <div className="rounded-lg bg-sidebar-accent/60 p-3 mb-2 group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-2.5">
+              <Avatar className="w-9 h-9 shrink-0">
                 <AvatarImage src={user?.avatar} />
-                <AvatarFallback>{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || '?'}</AvatarFallback>
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Welcome Section */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, {user?.firstName}!</h1>
-          <p className="text-gray-600 text-sm sm:text-base">Manage your health consultations and appointments</p>
-        </div>
-
-        {/* Patient Selection Modal */}
-        {showPatientSelector && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <PatientSelector
-                patients={patients}
-                onPatientSelect={handlePatientSelected}
-                selectedPatient={selectedPatient}
-              />
-              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPatientSelector(false)}
-                  className="w-full sm:w-auto"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => { setShowPatientSelector(false); setActiveTab("request"); }}
-                  disabled={!selectedPatient}
-                  className="w-full sm:w-auto"
-                >
-                  Continue to Consultation
-                </Button>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <p className="text-xs text-sidebar-foreground/60 capitalize truncate">
+                  {subscription?.plan || 'free'} plan
+                </p>
               </div>
             </div>
           </div>
-        )}
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+                <LogOut className="shrink-0" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Next Appointment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {nextAppointment ? (
-                <>
-                  <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                    {new Date(nextAppointment.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-500">Dr. {nextAppointment.doctor.lastName}</p>
-                </>
-              ) : (
-                <>
-                  <div className="text-xl sm:text-2xl font-bold text-gray-400">None</div>
-                  <p className="text-xs sm:text-sm text-gray-500">No upcoming appointments</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Family Members</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-green-600">{patients.length}</div>
-              <p className="text-xs sm:text-sm text-gray-500">Under your account</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Consultations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-purple-600">{appointments.length}</div>
-              <p className="text-xs sm:text-sm text-gray-500">All time</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Current Plan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-orange-600 capitalize">{subscription?.plan || 'free'}</div>
-              <p className="text-xs sm:text-sm text-gray-500 capitalize">{subscription?.status || 'active'}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <div className="overflow-x-auto">
-            <TabsList className="grid w-max grid-cols-7 min-w-full sm:w-full">
-              <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">
-                <span className="hidden sm:inline">Overview</span>
-                <span className="sm:hidden">Home</span>
-              </TabsTrigger>
-              <TabsTrigger value="request" className="text-xs sm:text-sm px-2 sm:px-3">
-                <span className="hidden sm:inline">Request Care</span>
-                <span className="sm:hidden">Request</span>
-              </TabsTrigger>
-              <TabsTrigger value="ai-chat" className="text-xs sm:text-sm px-2 sm:px-3">
-                <Bot className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
-                <span className="hidden sm:inline">AI Assistant</span>
-                <span className="sm:hidden">AI</span>
-              </TabsTrigger>
-              <TabsTrigger value="appointments" className="text-xs sm:text-sm px-2 sm:px-3">
-                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
-                <span className="hidden md:inline">Appointments</span>
-                <span className="md:hidden">Appts</span>
-              </TabsTrigger>
-              <TabsTrigger value="records" className="text-xs sm:text-sm px-2 sm:px-3">
-                <FileText className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
-                <span className="hidden sm:inline">Records</span>
-                <span className="sm:hidden">Files</span>
-              </TabsTrigger>
-              <TabsTrigger value="patients" className="text-xs sm:text-sm px-2 sm:px-3">
-                <Users className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
-                <span className="hidden sm:inline">Patients</span>
-                <span className="sm:hidden">Family</span>
-              </TabsTrigger>
-              <TabsTrigger value="subscription" className="text-xs sm:text-sm px-2 sm:px-3">
-                <CreditCard className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
-                <span className="hidden sm:inline">Subscription</span>
-                <span className="sm:hidden">Plan</span>
-              </TabsTrigger>
-            </TabsList>
+      <SidebarInset>
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b bg-card/80 backdrop-blur px-4 sm:px-6 h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <SidebarTrigger className="md:hidden" />
+            <div className="min-w-0">
+              <h1 className="font-display font-semibold text-lg sm:text-xl text-foreground truncate">
+                {SECTION_COPY[activeTab].title}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">
+                {SECTION_COPY[activeTab].subtitle}
+              </p>
+            </div>
           </div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Link to="/book-appointment">
+              <Button size="sm" className="bg-primary hover:bg-primary/90">
+                <CalendarDays className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Book Appointment</span>
+              </Button>
+            </Link>
+            <Avatar className="w-8 h-8 md:hidden">
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
+        </header>
 
-          <TabsContent value="overview">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Request Consultation</CardTitle>
-                  <CardDescription className="text-sm">Send a request to available doctors for immediate care</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      className="w-full text-sm"
-                      size="sm"
-                      onClick={() => handleStartConsultation('video')}
-                    >
-                      <Video className="w-4 h-4 mr-2" />
-                      Video Call
-                    </Button>
-                    <Button
-                      className="w-full bg-green-600 hover:bg-green-700 text-sm"
-                      size="sm"
-                      onClick={() => handleStartConsultation('chat')}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Chat
-                    </Button>
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    Doctors will be notified of your request and you'll be connected when one becomes available.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">AI Health Assistant</CardTitle>
-                  <CardDescription className="text-sm">Get quick answers to your health questions</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+        <div className="flex-1 px-4 sm:px-6 py-6">
+          {/* Patient Selection Modal */}
+          {showPatientSelector && (
+            <div className="fixed inset-0 bg-foreground/40 flex items-center justify-center z-50 p-4">
+              <div className="bg-card rounded-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg border">
+                <PatientSelector
+                  patients={patients}
+                  onPatientSelect={handlePatientSelected}
+                  selectedPatient={selectedPatient}
+                />
+                <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-6">
                   <Button
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-sm"
-                    size="sm"
-                    onClick={() => setIsChatbotOpen(true)}
-                  >
-                    <Bot className="w-4 h-4 mr-2" />
-                    Chat with AI Assistant
-                  </Button>
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    Ask questions about symptoms, medications, or general health information.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Subscription Status</CardTitle>
-                  <CardDescription className="text-sm">Manage your plan</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm sm:text-base capitalize">{subscription?.plan || 'free'} Plan</p>
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        {subscription?.chatConsultationsUsed || 0} chat / {subscription?.videoConsultationsUsed || 0} video used
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="capitalize">{subscription?.status || 'active'}</Badge>
-                  </div>
-                  <Button
-                    className="w-full text-sm"
                     variant="outline"
-                    onClick={() => setActiveTab("subscription")}
+                    onClick={() => setShowPatientSelector(false)}
+                    className="w-full sm:w-auto"
                   >
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Manage Subscription
+                    Cancel
                   </Button>
-                </CardContent>
-              </Card>
+                  <Button
+                    onClick={() => { setShowPatientSelector(false); setActiveTab("request"); }}
+                    disabled={!selectedPatient}
+                    className="w-full sm:w-auto"
+                  >
+                    Continue to Consultation
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
+          <Tabs value={activeTab} className="space-y-6">
+            <TabsContent value="overview" className="mt-0 space-y-6">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <Card className="border-none shadow-none bg-secondary/60">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      Next Appointment
+                    </div>
+                    {nextAppointment ? (
+                      <>
+                        <div className="text-xl font-display font-semibold text-foreground">
+                          {new Date(nextAppointment.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">Dr. {nextAppointment.doctor.lastName}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xl font-display font-semibold text-muted-foreground">None</div>
+                        <p className="text-xs text-muted-foreground mt-0.5">Nothing scheduled</p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-none bg-secondary/60">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                      <Users className="w-3.5 h-3.5" />
+                      Family Members
+                    </div>
+                    <div className="text-xl font-display font-semibold text-foreground">{patients.length}</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Under your account</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-none bg-secondary/60">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                      <Stethoscope className="w-3.5 h-3.5" />
+                      Consultations
+                    </div>
+                    <div className="text-xl font-display font-semibold text-foreground">{appointments.length}</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">All time</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-none bg-accent/15">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                      <CreditCard className="w-3.5 h-3.5" />
+                      Current Plan
+                    </div>
+                    <div className="text-xl font-display font-semibold text-foreground capitalize">{subscription?.plan || 'free'}</div>
+                    <p className="text-xs text-muted-foreground mt-0.5 capitalize">{subscription?.status || 'active'}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-display text-lg">Request Consultation</CardTitle>
+                    <CardDescription>Send a request to available doctors for immediate care</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        className="w-full"
+                        onClick={() => handleStartConsultation('video')}
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Video Call
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={() => handleStartConsultation('chat')}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Chat
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Doctors will be notified of your request and you'll be connected when one becomes available.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-display text-lg">AI Health Assistant</CardTitle>
+                    <CardDescription>Get quick answers to your health questions</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => setIsChatbotOpen(true)}
+                    >
+                      <Bot className="w-4 h-4 mr-2" />
+                      Chat with AI Assistant
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Ask questions about symptoms, medications, or general health information.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-display text-lg">Subscription Status</CardTitle>
+                    <CardDescription>Manage your plan</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm capitalize">{subscription?.plan || 'free'} Plan</p>
+                        <p className="text-sm text-muted-foreground">
+                          {subscription?.chatConsultationsUsed || 0} chat / {subscription?.videoConsultationsUsed || 0} video used
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="capitalize">{subscription?.status || 'active'}</Badge>
+                    </div>
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => setActiveTab("subscription")}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Manage Subscription
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="font-display text-lg">Upcoming Appointments</CardTitle>
+                    </div>
+                    {upcomingAppointments.length > 0 && (
+                      <button
+                        onClick={() => setActiveTab("appointments")}
+                        className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                      >
+                        View all <ChevronRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {upcomingAppointments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No upcoming appointments</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {upcomingAppointments.slice(0, 2).map((appointment) => (
+                          <div key={appointment._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-secondary/60 rounded-lg space-y-2 sm:space-y-0">
+                            <div>
+                              <p className="font-medium text-sm">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                              </p>
+                            </div>
+                            <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
+                              {appointment.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="request" className="mt-0">
+              <DoctorList
+                selectedPatient={selectedPatient}
+                onSelectPatient={() => setShowPatientSelector(true)}
+                onRequestSent={loadDashboard}
+              />
+            </TabsContent>
+
+            <TabsContent value="ai-chat" className="mt-0">
+              <AIChatbot selectedPatient={selectedPatient} />
+            </TabsContent>
+
+            <TabsContent value="appointments" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Upcoming Appointments</CardTitle>
+                  <CardTitle className="font-display">Your Appointments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {upcomingAppointments.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4">No upcoming appointments</p>
+                  {appointments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      No appointments yet. <Link to="/book-appointment" className="text-primary hover:underline">Book one now</Link>.
+                    </p>
                   ) : (
                     <div className="space-y-3">
-                      {upcomingAppointments.slice(0, 2).map((appointment) => (
-                        <div key={appointment._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 bg-gray-50 rounded-lg space-y-2 sm:space-y-0">
-                          <div>
-                            <p className="font-medium text-sm sm:text-base">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</p>
-                            <p className="text-xs sm:text-sm text-gray-600">
-                              {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
-                            </p>
+                      {appointments
+                        .slice()
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((appointment) => (
+                          <div key={appointment._id} className="flex justify-between items-center p-4 rounded-lg border">
+                            <div>
+                              <h3 className="font-medium">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</h3>
+                              <p className="text-sm text-muted-foreground">{appointment.doctor.specialization}</p>
+                              <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                                <Clock className="w-4 h-4 mr-1" />
+                                {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
+                                {appointment.status}
+                              </Badge>
+                              {["confirmed", "waiting", "in-progress"].includes(appointment.status) && (
+                                <Link to={`/video-call?appointmentId=${appointment._id}&type=${appointment.type}`}>
+                                  <Button size="sm">Join</Button>
+                                </Link>
+                              )}
+                            </div>
                           </div>
-                          <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
-                            {appointment.status}
-                          </Badge>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="request">
-            <DoctorList
-              selectedPatient={selectedPatient}
-              onSelectPatient={() => setShowPatientSelector(true)}
-              onRequestSent={loadDashboard}
-            />
-          </TabsContent>
-
-          <TabsContent value="ai-chat">
-            <AIChatbot selectedPatient={selectedPatient} />
-          </TabsContent>
-
-          <TabsContent value="appointments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Appointments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {appointments.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-8">
-                    No appointments yet. <Link to="/book-appointment" className="text-blue-600 hover:underline">Book one now</Link>.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {appointments
-                      .slice()
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((appointment) => (
-                        <div key={appointment._id} className="flex justify-between items-center p-4 border rounded-lg">
-                          <div>
-                            <h3 className="font-semibold">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</h3>
-                            <p className="text-sm text-gray-600">{appointment.doctor.specialization}</p>
-                            <div className="flex items-center mt-1 text-sm text-gray-500">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <Badge variant={appointment.status === 'confirmed' ? 'default' : 'secondary'}>
-                              {appointment.status}
-                            </Badge>
-                            {["confirmed", "waiting", "in-progress"].includes(appointment.status) && (
-                              <Link to={`/video-call?appointmentId=${appointment._id}&type=${appointment.type}`}>
-                                <Button size="sm">Join</Button>
-                              </Link>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+            <TabsContent value="records" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-display">Medical Records</CardTitle>
+                  <CardDescription>Access health history and documents for your family members</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-6">
+                    <PatientSelector
+                      patients={patients}
+                      onPatientSelect={setSelectedPatient}
+                      selectedPatient={selectedPatient}
+                    />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="records">
-            <Card>
-              <CardHeader>
-                <CardTitle>Medical Records</CardTitle>
-                <CardDescription>Access health history and documents for your family members</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-6">
-                  <PatientSelector
-                    patients={patients}
-                    onPatientSelect={setSelectedPatient}
-                    selectedPatient={selectedPatient}
-                  />
-                </div>
-
-                {selectedPatient ? (
-                  recordsLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {recentRecords.length === 0 ? (
-                        <p className="text-center text-sm text-gray-500 py-4">No records yet for {selectedPatient.name}</p>
-                      ) : (
-                        recentRecords.map((record) => (
-                          <div key={record._id} className="flex justify-between items-center p-4 border rounded-lg">
-                            <div>
-                              <h3 className="font-medium">{record.diagnosis || 'Consultation'}</h3>
-                              <p className="text-sm text-gray-600">
-                                {new Date(record.date).toLocaleDateString()} - Dr. {record.doctor.firstName} {record.doctor.lastName}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      <div className="text-center mt-6">
-                        <Link to={`/medical-records?familyMemberId=${selectedPatient._id}`}>
-                          <Button>
-                            <FileText className="w-4 h-4 mr-2" />
-                            View All Records for {selectedPatient.name}
-                          </Button>
-                        </Link>
+                  {selectedPatient ? (
+                    recordsLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                       </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {recentRecords.length === 0 ? (
+                          <p className="text-center text-sm text-muted-foreground py-4">No records yet for {selectedPatient.name}</p>
+                        ) : (
+                          recentRecords.map((record) => (
+                            <div key={record._id} className="flex justify-between items-center p-4 rounded-lg border">
+                              <div>
+                                <h3 className="font-medium">{record.diagnosis || 'Consultation'}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {new Date(record.date).toLocaleDateString()} - Dr. {record.doctor.firstName} {record.doctor.lastName}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        <div className="text-center mt-6">
+                          <Link to={`/medical-records?familyMemberId=${selectedPatient._id}`}>
+                            <Button>
+                              <FileText className="w-4 h-4 mr-2" />
+                              View All Records for {selectedPatient.name}
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p>Please select a patient to view their medical records</p>
                     </div>
-                  )
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                    <p>Please select a patient to view their medical records</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="patients">
-            <PatientManagement
-              patients={patients}
-              onAdd={handleAddPatient}
-              onEdit={handleEditPatient}
-              onDelete={handleDeletePatient}
-              canAddMore={!limits || patients.length < limits.familyMemberLimit}
-              familyMemberLimit={limits?.familyMemberLimit || 1}
-              currentPlan={subscription?.plan || "free"}
-              onUpgradeClick={() => setActiveTab("subscription")}
-            />
-          </TabsContent>
+            <TabsContent value="patients" className="mt-0">
+              <PatientManagement
+                patients={patients}
+                onAdd={handleAddPatient}
+                onEdit={handleEditPatient}
+                onDelete={handleDeletePatient}
+                canAddMore={!limits || patients.length < limits.familyMemberLimit}
+                familyMemberLimit={limits?.familyMemberLimit || 1}
+                currentPlan={subscription?.plan || "free"}
+                onUpgradeClick={() => setActiveTab("subscription")}
+              />
+            </TabsContent>
 
-          <TabsContent value="subscription">
-            <PatientSubscription />
-          </TabsContent>
-        </Tabs>
-      </div>
+            <TabsContent value="subscription" className="mt-0">
+              <PatientSubscription />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </SidebarInset>
 
       {/* Floating AI Chatbot Button */}
       <Drawer open={isChatbotOpen} onOpenChange={setIsChatbotOpen} shouldScaleBackground={false}>
         <DrawerTrigger asChild>
           <Button
-            className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg z-40"
+            className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg z-40 bg-accent hover:bg-accent/90 text-accent-foreground"
             size="icon"
           >
             <Bot className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -555,14 +623,14 @@ const PatientDashboard = () => {
         </DrawerTrigger>
         <DrawerContent className="h-[85vh] sm:h-[80vh]">
           <DrawerHeader>
-            <DrawerTitle>AI Health Assistant</DrawerTitle>
+            <DrawerTitle className="font-display">AI Health Assistant</DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 p-4">
             <AIChatbot selectedPatient={selectedPatient} />
           </div>
         </DrawerContent>
       </Drawer>
-    </div>
+    </SidebarProvider>
   );
 };
 

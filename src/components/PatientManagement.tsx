@@ -112,7 +112,7 @@ const PatientManagement = ({
       <CardContent>
         <div className="space-y-4">
           {patients.map((patient) => (
-            <div key={patient._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+            <div key={patient._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50">
               <div className="flex items-center space-x-3">
                 <Avatar className="w-12 h-12">
                   <AvatarImage src={patient.avatar} />
@@ -124,7 +124,7 @@ const PatientManagement = ({
                   <p className="font-medium">{patient.name}</p>
                   <div className="flex items-center mt-1">
                     {getPatientIcon(patient.relationship)}
-                    <span className="text-sm text-gray-600 ml-1 capitalize">
+                    <span className="text-sm text-muted-foreground ml-1 capitalize">
                       {patient.relationship}
                       {patient.age && `, ${patient.age} years old`}
                     </span>
@@ -146,7 +146,7 @@ const PatientManagement = ({
                     size="sm"
                     onClick={() => handleDeletePatient(patient._id)}
                     disabled={deletingId === patient._id}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     {deletingId === patient._id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -169,8 +169,8 @@ const PatientManagement = ({
               Add New Patient
             </Button>
           ) : (
-            <div className="p-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-center">
-              <p className="text-sm text-gray-600">
+            <div className="p-4 rounded-lg border border-dashed border-border bg-secondary/40 text-center">
+              <p className="text-sm text-muted-foreground">
                 {currentPlan === "free"
                   ? "The Free plan only covers your own profile."
                   : `Your ${currentPlan} plan covers up to ${familyMemberLimit} ${familyMemberLimit === 1 ? "person" : "people"}.`}{" "}

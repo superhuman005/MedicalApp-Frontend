@@ -17,9 +17,9 @@ const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
 };
 
 const PLAN_COLORS: Record<PlanId, string> = {
-  free: "border-gray-200",
-  basic: "border-blue-200",
-  premium: "border-purple-200",
+  free: "border-border",
+  basic: "border-primary/25",
+  premium: "border-accent/50",
 };
 
 const formatLimit = (n: number) => (n === Infinity ? "Unlimited" : n);
@@ -159,25 +159,25 @@ const PatientSubscription = () => {
           const isCurrent = subscription?.plan === plan.id;
           const isPopular = plan.id === 'premium';
           return (
-            <Card key={plan.id} className={`relative ${PLAN_COLORS[plan.id]} ${isPopular ? 'ring-2 ring-purple-500' : ''}`}>
+            <Card key={plan.id} className={`relative ${PLAN_COLORS[plan.id]} ${isPopular ? 'ring-2 ring-accent' : ''}`}>
               {isPopular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-purple-500">Most Popular</Badge>
+                  <Badge className="bg-accent text-accent-foreground hover:bg-accent">Most Popular</Badge>
                 </div>
               )}
               <CardHeader className="text-center">
-                <div className="mx-auto w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                <div className="mx-auto w-12 h-12 bg-secondary rounded-lg flex items-center justify-center mb-3">
                   {PLAN_ICONS[plan.id]}
                 </div>
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
+                <CardTitle className="text-xl font-display">{plan.name}</CardTitle>
                 <div className="space-y-1">
-                  <div className="text-3xl font-bold">
+                  <div className="text-3xl font-display font-semibold">
                     {plan.price === 0 ? "Free" : nairaFormatter.format(plan.price)}
                   </div>
-                  <div className="text-sm text-gray-600">{plan.period}</div>
+                  <div className="text-sm text-muted-foreground">{plan.period}</div>
                 </div>
-                <div className="bg-blue-50 p-2 rounded-lg mb-2">
-                  <div className="flex items-center justify-center space-x-1 text-sm font-medium text-blue-700">
+                <div className="bg-primary/5 p-2 rounded-lg mb-2">
+                  <div className="flex items-center justify-center space-x-1 text-sm font-medium text-primary">
                     <Users className="w-4 h-4" />
                     <span>Up to {plan.familyMembers} {plan.familyMembers === 1 ? 'person' : 'members'}</span>
                   </div>

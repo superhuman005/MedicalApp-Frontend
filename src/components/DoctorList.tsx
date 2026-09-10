@@ -63,14 +63,13 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
       <CardContent>
         <div className="space-y-6">
           {!selectedPatient && (
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-primary/20 bg-primary/5">
               <CardContent className="text-center py-6">
-                <Users className="w-12 h-12 mx-auto text-blue-600 mb-3" />
-                <h3 className="text-lg font-semibold text-blue-900 mb-2">Select Patient First</h3>
-                <p className="text-blue-700 mb-4">Please choose who this consultation is for to continue</p>
+                <Users className="w-12 h-12 mx-auto text-primary mb-3" />
+                <h3 className="text-lg font-display font-semibold text-foreground mb-2">Select Patient First</h3>
+                <p className="text-muted-foreground mb-4">Please choose who this consultation is for to continue</p>
                 <Button 
                   onClick={onSelectPatient}
-                  className="bg-blue-600 hover:bg-blue-700"
                   size="lg"
                 >
                   <Users className="w-4 h-4 mr-2" />
@@ -82,7 +81,7 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
 
           {selectedPatient && (
             <>
-              <Card className="border-green-200 bg-green-50">
+              <Card className="border-primary/20 bg-primary/5">
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -93,15 +92,14 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-green-900">Consultation for: {selectedPatient.name}</p>
-                        <p className="text-sm text-green-700 capitalize">{selectedPatient.relationship}</p>
+                        <p className="font-medium text-foreground">Consultation for: {selectedPatient.name}</p>
+                        <p className="text-sm text-muted-foreground capitalize">{selectedPatient.relationship}</p>
                       </div>
                     </div>
                     <Button 
                       onClick={onSelectPatient}
                       variant="outline"
                       size="sm"
-                      className="border-green-300 text-green-700 hover:bg-green-100"
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Change Patient
@@ -189,12 +187,12 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
                   )}
                 </Button>
 
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-secondary/50 p-4 rounded-lg">
                   <h4 className="font-medium mb-2 flex items-center">
                     <Clock className="w-4 h-4 mr-2" />
                     What happens next?
                   </h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
+                  <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• Your request will be sent to available doctors</li>
                     <li>• You'll receive a notification when a doctor accepts</li>
                     <li>• The consultation will begin once matched</li>

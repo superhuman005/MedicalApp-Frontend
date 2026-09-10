@@ -32,7 +32,7 @@ const PatientSelector = ({ patients, onPatientSelect, selectedPatient }: Patient
       </CardHeader>
       <CardContent>
         {patients.length === 0 ? (
-          <p className="text-sm text-gray-600 text-center py-4">
+          <p className="text-sm text-muted-foreground text-center py-4">
             No patient profiles yet. Add one from the "Patients" tab first.
           </p>
         ) : (
@@ -42,8 +42,8 @@ const PatientSelector = ({ patients, onPatientSelect, selectedPatient }: Patient
                 key={patient._id}
                 className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
                   selectedPatient?._id === patient._id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/40'
                 }`}
                 onClick={() => onPatientSelect(patient)}
               >
@@ -58,7 +58,7 @@ const PatientSelector = ({ patients, onPatientSelect, selectedPatient }: Patient
                     <p className="font-medium text-sm truncate">{patient.name}</p>
                     <div className="flex items-center mt-1">
                       {getPatientIcon(patient.relationship)}
-                      <span className="text-xs text-gray-600 ml-1 capitalize">
+                      <span className="text-xs text-muted-foreground ml-1 capitalize">
                         {patient.relationship}
                         {patient.age && `, ${patient.age}y`}
                       </span>
@@ -70,7 +70,7 @@ const PatientSelector = ({ patients, onPatientSelect, selectedPatient }: Patient
           </div>
         )}
 
-        <p className="text-sm text-gray-600 text-center">
+        <p className="text-sm text-muted-foreground text-center">
           Need to add a new patient? Go to the "Patients" tab to manage your family members.
         </p>
       </CardContent>

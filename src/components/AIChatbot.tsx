@@ -97,7 +97,7 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
         <CardDescription>
           Ask questions about symptoms, medications, and general health information
           {selectedPatient && (
-            <span className="block mt-1 text-blue-600">
+            <span className="block mt-1 text-primary">
               Consultation for: {selectedPatient.name}
             </span>
           )}
@@ -116,7 +116,7 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
               >
                 {message.type === 'ai' && (
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-purple-100 text-purple-600">
+                    <AvatarFallback className="bg-accent/15 text-accent-foreground">
                       <Bot className="w-4 h-4" />
                     </AvatarFallback>
                   </Avatar>
@@ -125,8 +125,8 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
                 <div
                   className={`max-w-[80%] rounded-lg p-3 ${
                     message.type === 'user'
-                      ? 'bg-blue-500 text-white ml-auto'
-                      : 'bg-gray-100 text-gray-900'
+                      ? 'bg-primary text-primary-foreground ml-auto'
+                      : 'bg-secondary text-secondary-foreground'
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -140,7 +140,7 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
                 
                 {message.type === 'user' && (
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-blue-100 text-blue-600">
+                    <AvatarFallback className="bg-primary/10 text-primary">
                       <User className="w-4 h-4" />
                     </AvatarFallback>
                   </Avatar>
@@ -151,14 +151,14 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
             {isLoading && (
               <div className="flex items-start space-x-3">
                 <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-purple-100 text-purple-600">
+                  <AvatarFallback className="bg-accent/15 text-accent-foreground">
                     <Bot className="w-4 h-4" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-gray-100 rounded-lg p-3">
+                <div className="bg-secondary rounded-lg p-3">
                   <div className="flex items-center space-x-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm text-gray-600">AI is thinking...</span>
+                    <span className="text-sm text-muted-foreground">AI is thinking...</span>
                   </div>
                 </div>
               </div>
@@ -184,7 +184,7 @@ const AIChatbot = ({ selectedPatient }: AIChatbotProps) => {
           </Button>
         </div>
         
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-muted-foreground">
           <p>
             ⚠️ This AI assistant provides general health information only. Always consult healthcare professionals for medical advice.
           </p>
