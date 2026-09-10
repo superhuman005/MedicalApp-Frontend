@@ -179,6 +179,30 @@ const DoctorDashboard = () => {
           <p className="text-gray-600 mt-2">
             You have {todayAppointments.length} appointment{todayAppointments.length === 1 ? '' : 's'} scheduled for today
           </p>
+
+          {user.doctorApprovalStatus === "pending" && (
+            <div className="mt-4 flex items-start space-x-3 rounded-lg border border-yellow-300 bg-yellow-50 p-4">
+              <Clock className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-yellow-900">Your account is awaiting admin approval</p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  You can complete your profile in the meantime, but you won't be able to go online or accept
+                  patients until an admin reviews and approves your account.
+                </p>
+              </div>
+            </div>
+          )}
+          {user.doctorApprovalStatus === "rejected" && (
+            <div className="mt-4 flex items-start space-x-3 rounded-lg border border-red-300 bg-red-50 p-4">
+              <Clock className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-red-900">Your application wasn't approved</p>
+                <p className="text-sm text-red-700 mt-1">
+                  {user.approvalNote || "Please contact support for more information."}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}

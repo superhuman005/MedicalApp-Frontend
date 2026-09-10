@@ -16,11 +16,24 @@ interface PatientManagementProps {
   onAdd: (input: FamilyMemberInput) => Promise<void>;
   onEdit: (id: string, input: Partial<FamilyMemberInput>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  canAddMore: boolean;
+  familyMemberLimit: number;
+  currentPlan: string;
+  onUpgradeClick?: () => void;
 }
 
 const emptyForm = { name: "", relationship: "", age: "" };
 
-const PatientManagement = ({ patients, onAdd, onEdit, onDelete }: PatientManagementProps) => {
+const PatientManagement = ({
+  patients,
+  onAdd,
+  onEdit,
+  onDelete,
+  canAddMore,
+  familyMemberLimit,
+  currentPlan,
+  onUpgradeClick,
+}: PatientManagementProps) => {
   const [isAddingPatient, setIsAddingPatient] = useState(false);
   const [editingPatient, setEditingPatient] = useState<FamilyMember | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -146,14 +159,30 @@ const PatientManagement = ({ patients, onAdd, onEdit, onDelete }: PatientManagem
             </div>
           ))}
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setIsAddingPatient(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Patient
-          </Button>
+          {canAddMore ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsAddingPatient(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Patient
+            </Button>
+          ) : (
+            <div className="p-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-center">
+              <p className="text-sm text-gray-600">
+                {currentPlan === "free"
+                  ? "The Free plan only covers your own profile."
+                  : `Your ${currentPlan} plan covers up to ${familyMemberLimit} ${familyMemberLimit === 1 ? "person" : "people"}.`}{" "}
+                Upgrade your plan to add more family members.
+              </p>
+              {onUpgradeClick && (
+                <Button variant="outline" size="sm" className="mt-3" onClick={onUpgradeClick}>
+                  View Plans
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Add Patient Dialog */}

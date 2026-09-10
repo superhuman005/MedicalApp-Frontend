@@ -105,7 +105,7 @@ const Signup = () => {
 
       toast({
         title: "Account Created Successfully",
-        description: "Welcome Doctor!",
+        description: "Your account has been created and is now awaiting admin approval before you can go online.",
       });
 
       navigate("/doctor-dashboard");
@@ -353,6 +353,10 @@ const Signup = () => {
                       required
                     />
                   </div>
+                  <p className="text-xs text-gray-500 bg-gray-50 rounded-md p-3">
+                    New doctor accounts are reviewed by our admin team before you can go online and start
+                    accepting patients. This usually takes a short while after you submit your license details.
+                  </p>
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Create Doctor Account

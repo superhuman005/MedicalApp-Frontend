@@ -9,9 +9,11 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import VideoCall from "./pages/VideoCall";
 import BookAppointment from "./pages/BookAppointment";
 import MedicalRecords from "./pages/MedicalRecords";
+import SubscriptionCallback from "./pages/SubscriptionCallback";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -42,6 +44,22 @@ const App = () => (
                 <DoctorDashboard />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/admin-dashboard"
+            element={
+              <ProtectedRoute allowedUserType="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subscription/callback"
+            element={
+              <ProtectedRoute allowedUserType="patient">
+                <SubscriptionCallback />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/video-call" 

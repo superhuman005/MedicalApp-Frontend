@@ -3,6 +3,7 @@
 
 export type UserRole = "patient" | "doctor" | "admin";
 export type DoctorStatus = "online" | "offline" | "busy" | "available";
+export type DoctorApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface ConsultationFee {
   video: number;
@@ -29,6 +30,8 @@ export interface User {
   status?: DoctorStatus;
   rating?: number;
   ratingCount?: number;
+  doctorApprovalStatus?: DoctorApprovalStatus;
+  approvalNote?: string;
 
   // patient-only
   dateOfBirth?: string;
@@ -151,6 +154,7 @@ export interface Plan {
   id: PlanId;
   name: string;
   price: number;
+  currency: string;
   period: string;
   familyMembers: number;
   features: string[];
@@ -222,4 +226,44 @@ export interface AppNotification {
   relatedId?: string;
   isRead: boolean;
   createdAt: string;
+}
+
+export interface Payment {
+  _id: string;
+  patient: string | { _id: string; firstName: string; lastName: string; email: string };
+  plan: "basic" | "premium";
+  amount: number;
+  currency: string;
+  reference: string;
+  status: "pending" | "success" | "failed";
+  paidAt?: string;
+  gatewayResponse?: string;
+  createdAt: string;
+}
+
+export interface DoctorReportItem {
+  _id: string;
+  doctor: { _id: string; firstName: string; lastName: string; specialization?: string; avatar?: string };
+  patient: { _id: string; firstName: string; lastName: string; email: string };
+  familyMember?: { _id: string; name: string; relationship: string };
+  appointment: { _id: string; date: string; time: string; type: string; appointmentType: string; status: string };
+  recommendation: string;
+  urgency: "low" | "medium" | "high";
+  status: "open" | "reviewed";
+  reviewedBy?: { _id: string; firstName: string; lastName: string };
+  reviewedAt?: string;
+  createdAt: string;
+}
+
+export interface AdminOverview {
+  totalPatients: number;
+  totalDoctors: number;
+  pendingDoctors: number;
+  totalAppointments: number;
+  appointmentsToday: number;
+  totalConsultationRequests: number;
+  openReports: number;
+  planBreakdown: { plan: string; count: number }[];
+  revenue: number;
+  successfulPayments: number;
 }

@@ -112,7 +112,11 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
         <p className="text-gray-600 mb-2">{doctor.specialization || 'Specialty not set'} • {experienceLabel}</p>
         
         <div className="flex items-center space-x-2">
-          <Select value={doctor.status} onValueChange={(value) => onStatusChange(value as DoctorStatus)}>
+          <Select
+            value={doctor.status}
+            onValueChange={(value) => onStatusChange(value as DoctorStatus)}
+            disabled={doctor.doctorApprovalStatus !== "approved"}
+          >
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>

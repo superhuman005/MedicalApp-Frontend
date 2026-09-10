@@ -25,7 +25,7 @@ import {
 import { getMyAppointments } from "@/services/appointments";
 import { getCurrentSubscription } from "@/services/subscriptions";
 import { getConsultations } from "@/services/medicalRecords";
-import type { FamilyMember, Appointment, Subscription, ConsultationRecord } from "@/types";
+import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord } from "@/types";
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -40,6 +40,7 @@ const PatientDashboard = () => {
   const [patients, setPatients] = useState<FamilyMember[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
   const [recentRecords, setRecentRecords] = useState<ConsultationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -54,6 +55,7 @@ const PatientDashboard = () => {
       setPatients(patientsData);
       setAppointments(appointmentsData);
       setSubscription(subData.subscription);
+      setLimits(subData.limits);
       setSelectedPatient((prev) => prev || patientsData.find((p) => p.isSelf) || patientsData[0] || null);
     } catch (error) {
       toast({
@@ -528,6 +530,10 @@ const PatientDashboard = () => {
               onAdd={handleAddPatient}
               onEdit={handleEditPatient}
               onDelete={handleDeletePatient}
+              canAddMore={!limits || patients.length < limits.familyMemberLimit}
+              familyMemberLimit={limits?.familyMemberLimit || 1}
+              currentPlan={subscription?.plan || "free"}
+              onUpgradeClick={() => setActiveTab("subscription")}
             />
           </TabsContent>
 

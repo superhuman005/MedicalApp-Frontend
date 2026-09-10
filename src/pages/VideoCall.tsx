@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Video, VideoOff, Mic, MicOff, Phone, FileText, Loader2 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Video, VideoOff, Mic, MicOff, Phone, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +15,7 @@ import { getErrorMessage } from "@/services/api";
 import { getSocket } from "@/services/socket";
 import { getAppointmentById, updateAppointmentStatus } from "@/services/appointments";
 import { createPrescription, createConsultation } from "@/services/medicalRecords";
+import { createDoctorReport } from "@/services/doctorReports";
 import ChatConsultation from "@/components/ChatConsultation";
 import type { Appointment } from "@/types";
 
@@ -46,6 +48,9 @@ const VideoCall = () => {
   const [isSubmittingRx, setIsSubmittingRx] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "" });
   const [notes, setNotes] = useState("");
+  const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
+  const [recommendation, setRecommendation] = useState("");
+  const [reportUrgency, setReportUrgency] = useState<"low" | "medium" | "high">("low");
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -209,30 +214,57 @@ const VideoCall = () => {
     setIsVideoOn((v) => !v);
   };
 
-  const handleEndCall = async () => {
+  // Patients (and the plain "leave" case) just hang up immediately - only the
+  // doctor's end-of-consultation path finalizes the appointment record.
+  const handleLeaveCall = async () => {
     setIsEnding(true);
+    const socket = getSocket();
+    socket?.emit("video:end-call", { roomId: appointmentId });
+    cleanupCall();
+    navigate(isDoctor ? "/doctor-dashboard" : "/patient-dashboard");
+  };
+
+  const handleEndCallClick = () => {
+    if (isDoctor) {
+      setIsEndDialogOpen(true);
+    } else {
+      handleLeaveCall();
+    }
+  };
+
+  const handleConfirmEndConsultation = async () => {
+    if (!appointment || !recommendation.trim()) return;
+    setIsEnding(true);
+
     const socket = getSocket();
     socket?.emit("video:end-call", { roomId: appointmentId });
     cleanupCall();
 
     try {
-      if (appointment && isDoctor) {
-        await updateAppointmentStatus(appointment._id, "completed");
-        if (notes.trim()) {
-          await createConsultation({
-            patientId: appointment.patient._id,
-            familyMemberId: appointment.familyMember?._id,
-            appointmentId: appointment._id,
-            specialty: user?.specialization,
-            notes: notes.trim(),
-            status: "completed",
-          });
-        }
+      await updateAppointmentStatus(appointment._id, "completed");
+
+      if (notes.trim()) {
+        await createConsultation({
+          patientId: appointment.patient._id,
+          familyMemberId: appointment.familyMember?._id,
+          appointmentId: appointment._id,
+          specialty: user?.specialization,
+          notes: notes.trim(),
+          status: "completed",
+        });
       }
+
+      await createDoctorReport({
+        appointmentId: appointment._id,
+        recommendation: recommendation.trim(),
+        urgency: reportUrgency,
+      });
+
+      toast({ title: "Consultation ended", description: "Your recommendation was sent to the admin team." });
     } catch (error) {
       toast({ title: "Couldn't finalize appointment", description: getErrorMessage(error), variant: "destructive" });
     } finally {
-      navigate(isDoctor ? "/doctor-dashboard" : "/patient-dashboard");
+      navigate("/doctor-dashboard");
     }
   };
 
@@ -455,6 +487,63 @@ const VideoCall = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+
+              {/* Opened via the red hang-up button below, not a visible trigger here */}
+              <Dialog open={isEndDialogOpen} onOpenChange={(open) => !isEnding && setIsEndDialogOpen(open)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center">
+                      <AlertTriangle className="w-5 h-5 mr-2 text-orange-500" />
+                      End Consultation
+                    </DialogTitle>
+                    <DialogDescription>
+                      Send a private recommendation to the admin team before ending this consultation with{" "}
+                      {otherPartyName}. This is separate from the patient's medical record.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Recommendation for admin (required)</Label>
+                      <Textarea
+                        value={recommendation}
+                        onChange={(e) => setRecommendation(e.target.value)}
+                        placeholder="e.g. Patient needs urgent in-person follow-up; suspected platform misuse; general note on how this consultation went..."
+                        rows={4}
+                      />
+                    </div>
+                    <div>
+                      <Label className="mb-2 block">Urgency</Label>
+                      <RadioGroup value={reportUrgency} onValueChange={(v) => setReportUrgency(v as typeof reportUrgency)} className="flex space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="low" id="urgency-low" />
+                          <Label htmlFor="urgency-low" className="font-normal">Low</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="medium" id="urgency-medium" />
+                          <Label htmlFor="urgency-medium" className="font-normal">Medium</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="high" id="urgency-high" />
+                          <Label htmlFor="urgency-high" className="font-normal">High</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2 mt-4">
+                    <Button variant="outline" onClick={() => setIsEndDialogOpen(false)} disabled={isEnding}>
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleConfirmEndConsultation}
+                      disabled={isEnding || !recommendation.trim()}
+                    >
+                      {isEnding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      End Consultation
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </>
           ) : (
             <div className="flex-1 p-4">
@@ -491,7 +580,7 @@ const VideoCall = () => {
             variant="destructive"
             size="lg"
             className="rounded-full w-14 h-14"
-            onClick={handleEndCall}
+            onClick={handleEndCallClick}
             disabled={isEnding}
           >
             {isEnding ? <Loader2 className="w-6 h-6 animate-spin" /> : <Phone className="w-6 h-6" />}

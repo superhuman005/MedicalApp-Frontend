@@ -7,7 +7,8 @@ import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
   const { user } = useAuth();
-  const dashboardPath = user?.role === "doctor" ? "/doctor-dashboard" : "/patient-dashboard";
+  const dashboardPath =
+    user?.role === "doctor" ? "/doctor-dashboard" : user?.role === "admin" ? "/admin-dashboard" : "/patient-dashboard";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">

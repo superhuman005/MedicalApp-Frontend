@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedUserType?: "patient" | "doctor";
+  allowedUserType?: "patient" | "doctor" | "admin";
 }
 
 const ProtectedRoute = ({ children, allowedUserType }: ProtectedRouteProps) => {
@@ -26,7 +26,8 @@ const ProtectedRoute = ({ children, allowedUserType }: ProtectedRouteProps) => {
   if (allowedUserType && user.role !== allowedUserType) {
     // Logged in, but as the wrong role for this route - send them to their
     // own dashboard instead of bouncing them back to /login.
-    const redirectTo = user.role === "doctor" ? "/doctor-dashboard" : "/patient-dashboard";
+    const redirectTo =
+      user.role === "doctor" ? "/doctor-dashboard" : user.role === "admin" ? "/admin-dashboard" : "/patient-dashboard";
     return <Navigate to={redirectTo} replace />;
   }
 

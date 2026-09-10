@@ -40,6 +40,19 @@ for anything to work - see the backend's own README for setup.
   events (`video:join`, `video:offer`, `video:answer`, `video:ice-candidate`, ...).
 - **Chat consultations**: real messages persisted via `/api/chat/*` and delivered live over
   Socket.io.
+- **Subscriptions & payments**: plans priced in NGN; upgrading to Basic/Premium redirects to
+  a real Paystack checkout, with `/subscription/callback` verifying the transaction on return.
+  The Free plan can only cover your own profile - adding family members is disabled until you
+  upgrade.
+- **Doctor approval**: new doctor accounts are `pending` until an admin approves them - they
+  see a banner on their dashboard and can't go online or accept patients until then.
+- **End-of-consultation recommendations**: when a doctor ends a video call, they're asked to
+  send a private recommendation (with urgency) to the admin team before the appointment is
+  marked complete.
+- **Admin dashboard**: a third portal (`/admin-dashboard`, log in via the "Admin" tab on
+  `/login`) showing platform-wide stats, pending doctor approvals, doctor recommendations,
+  all appointments, users, and payments. Admin accounts aren't self-registrable - see the
+  backend README for how to create one (the seed script creates `admin@telemed.test`).
 
 ## 3. Building for production
 
