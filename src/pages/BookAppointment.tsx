@@ -24,6 +24,12 @@ const TIME_SLOTS = [
   "9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM",
 ];
 
+const nairaFormatter = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  maximumFractionDigits: 0,
+});
+
 const BookAppointment = () => {
   const [searchParams] = useSearchParams();
   const consultationType = (searchParams.get('type') as 'video' | 'chat') || 'video';
@@ -288,9 +294,9 @@ const BookAppointment = () => {
                       </div>
                       {selectedDoctorData?.consultationFee && (
                         <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Fee:</span>
+                          <span className="text-sm text-muted-foreground">Fee:</span>
                           <span className="text-sm font-medium">
-                            ${consultationType === 'video' ? selectedDoctorData.consultationFee.video : selectedDoctorData.consultationFee.chat}
+                            {nairaFormatter.format(consultationType === 'video' ? selectedDoctorData.consultationFee.video : selectedDoctorData.consultationFee.chat)}
                           </span>
                         </div>
                       )}

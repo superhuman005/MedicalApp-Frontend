@@ -14,6 +14,12 @@ const TYPE_LABELS: Record<string, string> = {
   followup: "Follow-up Sessions",
 };
 
+const nairaFormatter = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  maximumFractionDigits: 0,
+});
+
 // Groups this month's transactions into calendar weeks (1st-7th, 8th-14th, ...)
 // so the "weekly earnings" view reflects real data instead of a fabricated series.
 const groupByWeek = (transactions: Transaction[]) => {
@@ -60,7 +66,7 @@ const DoctorEarnings = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center py-16">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -80,20 +86,20 @@ const DoctorEarnings = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <DollarSign className="w-4 h-4 mr-2" />
               Monthly Earnings
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${summary.current.toLocaleString()}</div>
+            <div className="text-2xl font-display font-semibold text-primary">{nairaFormatter.format(summary.current)}</div>
             <div className="flex items-center mt-1">
               {summary.growth >= 0 ? (
-                <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
+                <TrendingUp className="w-4 h-4 text-primary mr-1" />
               ) : (
-                <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
+                <TrendingDown className="w-4 h-4 text-destructive mr-1" />
               )}
-              <span className={`text-sm ${summary.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <span className={`text-sm ${summary.growth >= 0 ? 'text-primary' : 'text-destructive'}`}>
                 {summary.growth > 0 ? '+' : ''}{summary.growth}% from last month
               </span>
             </div>
@@ -102,31 +108,31 @@ const DoctorEarnings = () => {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <Users className="w-4 h-4 mr-2" />
               Total Consultations
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{summary.consultations}</div>
-            <div className="text-sm text-gray-500 mt-1">
-              {summary.consultations > 0 ? `Avg: $${summary.avgPerConsultation} per consultation` : 'No consultations this month yet'}
+            <div className="text-2xl font-display font-semibold text-foreground">{summary.consultations}</div>
+            <div className="text-sm text-muted-foreground mt-1">
+              {summary.consultations > 0 ? `Avg: ${nairaFormatter.format(summary.avgPerConsultation)} per consultation` : 'No consultations this month yet'}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
               <Star className="w-4 h-4 mr-2" />
               Patient Rating
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-2xl font-display font-semibold text-accent-foreground">
               {summary.rating > 0 ? summary.rating.toFixed(1) : '—'}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="text-sm text-muted-foreground mt-1">
               {summary.rating > 0 ? 'Based on patient reviews' : 'No reviews yet'}
             </div>
           </CardContent>
@@ -136,22 +142,22 @@ const DoctorEarnings = () => {
       {/* Earnings Breakdown */}
       <Card>
         <CardHeader>
-          <CardTitle>Earnings Breakdown</CardTitle>
+          <CardTitle className="font-display text-lg">Earnings Breakdown</CardTitle>
           <CardDescription>Revenue by consultation type this month</CardDescription>
         </CardHeader>
         <CardContent>
           {breakdown.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-6">No earnings recorded this month yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No earnings recorded this month yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {breakdown.map((item) => (
-                <div key={item.type} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={item.type} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
                   <div>
                     <h3 className="font-medium">{TYPE_LABELS[item.type] || item.type}</h3>
-                    <p className="text-sm text-gray-600">{item.sessions} session{item.sessions === 1 ? '' : 's'}</p>
+                    <p className="text-sm text-muted-foreground">{item.sessions} session{item.sessions === 1 ? '' : 's'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg">${item.amount.toLocaleString()}</p>
+                    <p className="font-semibold text-lg">{nairaFormatter.format(item.amount)}</p>
                     <Badge variant="outline" className="text-xs">
                       {summary.current > 0 ? ((item.amount / summary.current) * 100).toFixed(1) : '0.0'}%
                     </Badge>
@@ -166,18 +172,18 @@ const DoctorEarnings = () => {
       {/* Weekly Earnings */}
       <Card>
         <CardHeader>
-          <CardTitle>Weekly Earnings</CardTitle>
+          <CardTitle className="font-display text-lg">Weekly Earnings</CardTitle>
           <CardDescription>Earnings progression this month</CardDescription>
         </CardHeader>
         <CardContent>
           {weeklyEarnings.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-6">No earnings recorded this month yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No earnings recorded this month yet.</p>
           ) : (
             <div className="space-y-3">
               {weeklyEarnings.map((week) => (
                 <div key={week.week} className="flex items-center justify-between">
                   <span className="text-sm font-medium">{week.week}</span>
-                  <span className="font-semibold">${week.amount.toLocaleString()}</span>
+                  <span className="font-semibold">{nairaFormatter.format(week.amount)}</span>
                 </div>
               ))}
             </div>

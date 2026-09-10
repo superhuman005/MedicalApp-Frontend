@@ -2,9 +2,26 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Video, Calendar, FileText, Users, Clock, LogOut, Loader2 } from "lucide-react";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import {
+  Video, CalendarDays, Users, Clock, LogOut, Loader2, Inbox, ClipboardList,
+  Wallet, BarChart3, AlertTriangle,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DoctorEarnings from "@/components/DoctorEarnings";
@@ -17,6 +34,24 @@ import { getMyAppointments, updateAppointmentStatus } from "@/services/appointme
 import { updateMyDoctorStatus, updateMyDoctorProfile } from "@/services/doctors";
 import type { Appointment, DoctorStatus } from "@/types";
 
+type SectionKey = "requests" | "appointments" | "patients" | "earnings" | "analytics";
+
+const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof Inbox }[] = [
+  { key: "requests", label: "Requests", icon: Inbox },
+  { key: "appointments", label: "Today's Schedule", icon: CalendarDays },
+  { key: "patients", label: "Patient Records", icon: ClipboardList },
+  { key: "earnings", label: "Earnings", icon: Wallet },
+  { key: "analytics", label: "Analytics", icon: BarChart3 },
+];
+
+const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
+  requests: { title: "Requests", subtitle: "Patients waiting for a doctor" },
+  appointments: { title: "Today's Schedule", subtitle: "Your appointments for today" },
+  patients: { title: "Patient Records", subtitle: "Everyone you've treated" },
+  earnings: { title: "Earnings", subtitle: "Your consultations and payouts" },
+  analytics: { title: "Analytics", subtitle: "Trends and patient feedback" },
+};
+
 const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
@@ -25,6 +60,7 @@ const DoctorDashboard = () => {
   const { user, logout, updateUser } = useAuth();
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState<SectionKey>("requests");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -57,6 +93,7 @@ const DoctorDashboard = () => {
     specialization?: string;
     yearsOfExperience?: number;
     avatar?: string;
+    consultationFee?: { video?: number; chat?: number };
   }) => {
     try {
       const updated = await updateMyDoctorProfile(updates);
@@ -132,269 +169,347 @@ const DoctorDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointments]);
 
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || '?';
+
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Video className="w-5 h-5 text-white" />
-                </div>
-                <span className="ml-2 text-xl font-bold text-gray-900">TeleMed</span>
-              </Link>
+    <SidebarProvider>
+      <Sidebar collapsible="icon" className="border-sidebar-border">
+        <SidebarHeader className="px-3 py-4">
+          <Link to="/" className="flex items-center gap-2 px-1">
+            <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
+              <Video className="w-[18px] h-[18px] text-sidebar-primary-foreground" />
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <Avatar>
-                <AvatarImage src={user.avatar} />
-                <AvatarFallback>{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || '?'}</AvatarFallback>
-              </Avatar>
+            <span className="font-display font-semibold text-sidebar-foreground text-lg tracking-tight group-data-[collapsible=icon]:hidden">
+              TeleMed
+            </span>
+          </Link>
+        </SidebarHeader>
+
+        <SidebarContent className="px-2">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {NAV_ITEMS.map((item) => (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      isActive={activeTab === item.key}
+                      onClick={() => setActiveTab(item.key)}
+                      tooltip={item.label}
+                      className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium relative data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary"
+                    >
+                      <item.icon className="shrink-0" />
+                      <span>{item.label}</span>
+                      {item.key === "requests" && waitingCount > 0 && (
+                        <Badge className="ml-auto bg-accent text-accent-foreground hover:bg-accent group-data-[collapsible=icon]:hidden">
+                          {waitingCount}
+                        </Badge>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="px-2 pb-3">
+          <div className="rounded-lg bg-sidebar-accent/60 p-3 mb-2 group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-2.5">
+              <div className="relative shrink-0">
+                <Avatar className="w-9 h-9">
+                  <AvatarImage src={user.avatar} />
+                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div
+                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-sidebar-background ${
+                    user.status === 'online' || user.status === 'available'
+                      ? 'bg-emerald-500'
+                      : user.status === 'busy'
+                      ? 'bg-amber-500'
+                      : 'bg-sidebar-foreground/30'
+                  }`}
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                  Dr. {user?.firstName} {user?.lastName}
+                </p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">{user.specialization || 'General Practice'}</p>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+                <LogOut className="shrink-0" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <DoctorProfile
-            doctor={user}
-            onProfileUpdate={handleProfileUpdate}
-            onStatusChange={handleStatusChange}
-          />
-          <p className="text-gray-600 mt-2">
-            You have {todayAppointments.length} appointment{todayAppointments.length === 1 ? '' : 's'} scheduled for today
-          </p>
-
-          {user.doctorApprovalStatus === "pending" && (
-            <div className="mt-4 flex items-start space-x-3 rounded-lg border border-yellow-300 bg-yellow-50 p-4">
-              <Clock className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-yellow-900">Your account is awaiting admin approval</p>
-                <p className="text-sm text-yellow-700 mt-1">
-                  You can complete your profile in the meantime, but you won't be able to go online or accept
-                  patients until an admin reviews and approves your account.
-                </p>
-              </div>
+      <SidebarInset>
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b bg-card/80 backdrop-blur px-4 sm:px-6 h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <SidebarTrigger className="md:hidden" />
+            <div className="min-w-0">
+              <h1 className="font-display font-semibold text-lg sm:text-xl text-foreground truncate">
+                {SECTION_COPY[activeTab].title}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">
+                {SECTION_COPY[activeTab].subtitle}
+              </p>
             </div>
-          )}
-          {user.doctorApprovalStatus === "rejected" && (
-            <div className="mt-4 flex items-start space-x-3 rounded-lg border border-red-300 bg-red-50 p-4">
-              <Clock className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-red-900">Your application wasn't approved</p>
-                <p className="text-sm text-red-700 mt-1">
-                  {user.approvalNote || "Please contact support for more information."}
-                </p>
+          </div>
+          <Avatar className="w-8 h-8 md:hidden shrink-0">
+            <AvatarImage src={user.avatar} />
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+        </header>
+
+        <div className="flex-1 px-4 sm:px-6 py-6 space-y-6">
+          {/* Profile + approval status - persistent context above every section */}
+          <div>
+            <DoctorProfile
+              doctor={user}
+              onProfileUpdate={handleProfileUpdate}
+              onStatusChange={handleStatusChange}
+            />
+            <p className="text-muted-foreground mt-2 text-sm">
+              You have {todayAppointments.length} appointment{todayAppointments.length === 1 ? '' : 's'} scheduled for today
+            </p>
+
+            {user.doctorApprovalStatus === "pending" && (
+              <div className="mt-4 flex items-start space-x-3 rounded-lg border border-amber-300/60 bg-amber-500/10 p-4">
+                <Clock className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-900">Your account is awaiting admin approval</p>
+                  <p className="text-sm text-amber-700/90 mt-1">
+                    You can complete your profile in the meantime, but you won't be able to go online or accept
+                    patients until an admin reviews and approves your account.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Today's Appointments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{todayAppointments.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Patients Waiting</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{waitingCount}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">This Month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{thisMonthAppointments.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Patient Rating</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {user.rating && user.rating > 0 ? user.rating.toFixed(1) : '—'}
+            )}
+            {user.doctorApprovalStatus === "rejected" && (
+              <div className="mt-4 flex items-start space-x-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-destructive">Your application wasn't approved</p>
+                  <p className="text-sm text-destructive/80 mt-1">
+                    {user.approvalNote || "Please contact support for more information."}
+                  </p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="requests" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="requests">Requests</TabsTrigger>
-            <TabsTrigger value="appointments">Today's Schedule</TabsTrigger>
-            <TabsTrigger value="patients">Patient Records</TabsTrigger>
-            <TabsTrigger value="earnings">Earnings</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          </TabsList>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="border-none shadow-none bg-secondary/60">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  Today's Appointments
+                </div>
+                <div className="text-xl font-display font-semibold text-foreground">{todayAppointments.length}</div>
+              </CardContent>
+            </Card>
 
-          <TabsContent value="requests">
-            <ConsultationRequests />
-          </TabsContent>
+            <Card className="border-none shadow-none bg-accent/15">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  Patients Waiting
+                </div>
+                <div className="text-xl font-display font-semibold text-foreground">{waitingCount}</div>
+              </CardContent>
+            </Card>
 
-          <TabsContent value="appointments">
-            {todayAppointments.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12 text-gray-500">
-                  No appointments scheduled for today.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {todayAppointments.map((appointment) => {
-                  const displayName = appointment.familyMember
-                    ? appointment.familyMember.name
-                    : `${appointment.patient.firstName} ${appointment.patient.lastName}`;
-                  const canJoin = ["confirmed", "waiting", "in-progress"].includes(appointment.status);
-                  return (
-                    <Card key={appointment._id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <Avatar className="w-12 h-12">
-                              <AvatarImage src={appointment.patient.avatar} />
-                              <AvatarFallback>
-                                {displayName.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h3 className="font-semibold text-lg">{displayName}</h3>
-                              <p className="text-gray-600">{appointment.appointmentType}</p>
-                              <div className="flex items-center mt-1 text-sm text-gray-500">
-                                <Clock className="w-4 h-4 mr-1" />
-                                {appointment.time}
+            <Card className="border-none shadow-none bg-secondary/60">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  This Month
+                </div>
+                <div className="text-xl font-display font-semibold text-foreground">{thisMonthAppointments.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-none bg-secondary/60">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  Patient Rating
+                </div>
+                <div className="text-xl font-display font-semibold text-foreground">
+                  {user.rating && user.rating > 0 ? user.rating.toFixed(1) : '—'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <Tabs value={activeTab}>
+            <TabsContent value="requests" className="mt-0">
+              <ConsultationRequests />
+            </TabsContent>
+
+            <TabsContent value="appointments" className="mt-0">
+              {todayAppointments.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12 text-muted-foreground">
+                    No appointments scheduled for today.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {todayAppointments.map((appointment) => {
+                    const displayName = appointment.familyMember
+                      ? appointment.familyMember.name
+                      : `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+                    const canJoin = ["confirmed", "waiting", "in-progress"].includes(appointment.status);
+                    return (
+                      <Card key={appointment._id}>
+                        <CardContent className="p-5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <Avatar className="w-11 h-11">
+                                <AvatarImage src={appointment.patient.avatar} />
+                                <AvatarFallback>
+                                  {displayName.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h3 className="font-medium">{displayName}</h3>
+                                <p className="text-sm text-muted-foreground">{appointment.appointmentType}</p>
+                                <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                                  <Clock className="w-3.5 h-3.5 mr-1" />
+                                  {appointment.time}
+                                </div>
                               </div>
                             </div>
+                            <div className="flex items-center space-x-3">
+                              <Badge
+                                variant={appointment.status === 'waiting' ? 'destructive' : 'outline'}
+                                className={appointment.status === 'waiting' ? '' : 'text-primary border-primary/30'}
+                              >
+                                {appointment.status}
+                              </Badge>
+                              <Button disabled={!canJoin} onClick={() => handleStartCall(appointment)}>
+                                {appointment.status === 'waiting' ? 'Start Call' : canJoin ? 'Join Call' : 'Not Ready'}
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-3">
-                            <Badge
-                              variant={appointment.status === 'waiting' ? 'destructive' : 'outline'}
-                              className={appointment.status === 'waiting' ? '' : 'text-blue-600 border-blue-600'}
-                            >
-                              {appointment.status}
-                            </Badge>
-                            <Button disabled={!canJoin} onClick={() => handleStartCall(appointment)}>
-                              {appointment.status === 'waiting' ? 'Start Call' : canJoin ? 'Join Call' : 'Not Ready'}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="patients" className="mt-0">
+              {recentPatients.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12 text-muted-foreground">
+                    You haven't seen any patients yet.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {recentPatients.map((patient) => (
+                    <Card key={`${patient.patientId}:${patient.familyMemberId || 'self'}`}>
+                      <CardContent className="p-5">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="font-medium">{patient.name}</h3>
+                            <p className="text-sm text-muted-foreground">Last visit: {new Date(patient.lastVisit).toLocaleDateString()}</p>
+                          </div>
+                          <Link
+                            to={`/medical-records?patientId=${patient.patientId}${patient.familyMemberId ? `&familyMemberId=${patient.familyMemberId}` : ''}`}
+                          >
+                            <Button variant="outline" size="sm">
+                              View Records
                             </Button>
-                          </div>
+                          </Link>
                         </div>
                       </CardContent>
                     </Card>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
-          <TabsContent value="patients">
-            {recentPatients.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12 text-gray-500">
-                  You haven't seen any patients yet.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {recentPatients.map((patient) => (
-                  <Card key={`${patient.patientId}:${patient.familyMemberId || 'self'}`}>
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-2">
-                          <h3 className="font-semibold text-lg">{patient.name}</h3>
-                          <p className="text-gray-600">Last visit: {new Date(patient.lastVisit).toLocaleDateString()}</p>
-                        </div>
-                        <Link
-                          to={`/medical-records?patientId=${patient.patientId}${patient.familyMemberId ? `&familyMemberId=${patient.familyMemberId}` : ''}`}
-                        >
-                          <Button variant="outline" size="sm">
-                            View Records
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+            <TabsContent value="earnings" className="mt-0">
+              <DoctorEarnings />
+            </TabsContent>
 
-          <TabsContent value="earnings">
-            <DoctorEarnings />
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Monthly Consultations</CardTitle>
-                  <CardDescription>Patient visits over the last 6 months</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlyTrend}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="label" />
-                        <YAxis allowDecimals={false} domain={[0, (max: number) => Math.max(max, 4)]} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="count" name="Consultations" stroke="#2563eb" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Overall Rating</CardTitle>
-                  <CardDescription>Based on patient feedback</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {user.rating && user.rating > 0 ? (
-                    <div className="flex items-center justify-between">
-                      <span className="text-4xl font-bold">{user.rating.toFixed(1)}</span>
-                      <span className="text-sm text-gray-500">
-                        based on {user.ratingCount || 0} review{user.ratingCount === 1 ? '' : 's'}
-                      </span>
+            <TabsContent value="analytics" className="mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-display text-lg">Monthly Consultations</CardTitle>
+                    <CardDescription>Patient visits over the last 6 months</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={monthlyTrend}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                          <YAxis allowDecimals={false} domain={[0, (max: number) => Math.max(max, 4)]} stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--card))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: 'var(--radius)',
+                              fontSize: 13,
+                            }}
+                          />
+                          <Line type="monotone" dataKey="count" name="Consultations" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
+                        </LineChart>
+                      </ResponsiveContainer>
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 py-6 text-center">No patient reviews yet.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="font-display text-lg">Overall Rating</CardTitle>
+                    <CardDescription>Based on patient feedback</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {user.rating && user.rating > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <span className="text-4xl font-display font-semibold">{user.rating.toFixed(1)}</span>
+                        <span className="text-sm text-muted-foreground">
+                          based on {user.ratingCount || 0} review{user.ratingCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-6 text-center">No patient reviews yet.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 };
 

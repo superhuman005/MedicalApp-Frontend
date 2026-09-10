@@ -98,9 +98,9 @@ const ConsultationRequests = () => {
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'medium': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'low': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      default: return 'bg-secondary text-secondary-foreground border-border';
     }
   };
 
@@ -121,11 +121,11 @@ const ConsultationRequests = () => {
         <div className="space-y-4">
           {isLoading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 mx-auto animate-spin text-gray-400" />
+              <Loader2 className="w-8 h-8 mx-auto animate-spin text-muted-foreground" />
             </div>
           ) : requests.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <MessageSquare className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+            <div className="text-center py-8 text-muted-foreground">
+              <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
               <p>No consultation requests at the moment</p>
               <p className="text-sm">You'll be notified when patients request consultations</p>
             </div>
@@ -137,7 +137,7 @@ const ConsultationRequests = () => {
               const age = request.familyMember?.age;
 
               return (
-                <Card key={request._id} className="border-l-4 border-l-blue-500">
+                <Card key={request._id} className="border-l-4 border-l-primary">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3">
@@ -149,7 +149,7 @@ const ConsultationRequests = () => {
                         </Avatar>
                         <div>
                           <h3 className="font-semibold">{displayName}</h3>
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                             <span className="capitalize">{relationship}</span>
                             {age && <span>• {age} years old</span>}
                           </div>
@@ -171,13 +171,13 @@ const ConsultationRequests = () => {
                     </div>
 
                     {request.message && (
-                      <div className="bg-gray-50 p-3 rounded-lg mb-3">
-                        <p className="text-sm text-gray-700">{request.message}</p>
+                      <div className="bg-secondary/50 p-3 rounded-lg mb-3">
+                        <p className="text-sm text-foreground">{request.message}</p>
                       </div>
                     )}
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center text-sm text-gray-500">
+                      <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="w-4 h-4 mr-1" />
                         {request.timeAgo}
                       </div>
@@ -196,7 +196,7 @@ const ConsultationRequests = () => {
                           size="sm"
                           onClick={() => handleAcceptRequest(request)}
                           disabled={actingOnId === request._id}
-                          className="bg-green-600 hover:bg-green-700"
+                          className="bg-primary hover:bg-primary/90"
                         >
                           {actingOnId === request._id ? (
                             <Loader2 className="w-4 h-4 mr-1 animate-spin" />

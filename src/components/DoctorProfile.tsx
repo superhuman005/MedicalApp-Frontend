@@ -18,9 +18,16 @@ interface DoctorProfileProps {
     specialization?: string;
     yearsOfExperience?: number;
     avatar?: string;
+    consultationFee?: { video?: number; chat?: number };
   }) => Promise<void>;
   onStatusChange: (status: DoctorStatus) => Promise<void>;
 }
+
+const nairaFormatter = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  maximumFractionDigits: 0,
+});
 
 const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfileProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,6 +37,8 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
     yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
     bio: doctor.bio || "",
     avatar: doctor.avatar || "",
+    videoFee: doctor.consultationFee?.video?.toString() || "",
+    chatFee: doctor.consultationFee?.chat?.toString() || "",
   });
 
   useEffect(() => {
@@ -38,8 +47,10 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
       yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
       bio: doctor.bio || "",
       avatar: doctor.avatar || "",
+      videoFee: doctor.consultationFee?.video?.toString() || "",
+      chatFee: doctor.consultationFee?.chat?.toString() || "",
     });
-  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar]);
+  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar, doctor.consultationFee]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -49,6 +60,13 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
         yearsOfExperience: formData.yearsOfExperience ? Number(formData.yearsOfExperience) : undefined,
         bio: formData.bio,
         avatar: formData.avatar,
+        consultationFee: {
+          // Always send both values (falling back to the existing ones) so a
+          // partial edit can never accidentally clear the other fee - the
+          // backend replaces the whole consultationFee object on update.
+          video: formData.videoFee ? Number(formData.videoFee) : doctor.consultationFee?.video,
+          chat: formData.chatFee ? Number(formData.chatFee) : doctor.consultationFee?.chat,
+        },
       });
       setIsOpen(false);
     } finally {
@@ -60,13 +78,11 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
     switch (status) {
       case 'online':
       case 'available':
-        return 'bg-green-500';
+        return 'bg-emerald-500';
       case 'busy':
-        return 'bg-yellow-500';
-      case 'offline':
-        return 'bg-gray-500';
+        return 'bg-amber-500';
       default:
-        return 'bg-gray-500';
+        return 'bg-muted-foreground/40';
     }
   };
 
@@ -95,21 +111,24 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
       <div className="relative">
         <Avatar className="w-16 h-16">
           <AvatarImage src={doctor.avatar} />
-          <AvatarFallback>
+          <AvatarFallback className="bg-primary text-primary-foreground text-lg">
             {fullName.split(' ').map(n => n[0]).join('')}
           </AvatarFallback>
         </Avatar>
-        <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(doctor.status)} rounded-full border-2 border-white`}></div>
+        <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(doctor.status)} rounded-full border-2 border-background`}></div>
       </div>
       
       <div className="flex-1">
         <div className="flex items-center space-x-2 mb-1">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome, Dr. {doctor.lastName}!</h1>
+          <h1 className="text-2xl sm:text-3xl font-display font-semibold text-foreground">Welcome, Dr. {doctor.lastName}!</h1>
           <Badge variant="outline" className="text-xs">
             {getStatusText(doctor.status)}
           </Badge>
         </div>
-        <p className="text-gray-600 mb-2">{doctor.specialization || 'Specialty not set'} • {experienceLabel}</p>
+        <p className="text-muted-foreground mb-2">
+          {doctor.specialization || 'Specialty not set'} • {experienceLabel}
+          {doctor.consultationFee?.video ? ` • ${nairaFormatter.format(doctor.consultationFee.video)} video` : ''}
+        </p>
         
         <div className="flex items-center space-x-2">
           <Select
@@ -136,7 +155,7 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Edit Profile</DialogTitle>
+                <DialogTitle className="font-display">Edit Profile</DialogTitle>
                 <DialogDescription>
                   Update your professional information. Your name and email are managed on the Account settings.
                 </DialogDescription>
@@ -163,6 +182,34 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
                     min={0}
                     value={formData.yearsOfExperience}
                     onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="video-fee" className="text-right">
+                    Video Fee (₦)
+                  </Label>
+                  <Input
+                    id="video-fee"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={formData.videoFee}
+                    onChange={(e) => setFormData({ ...formData, videoFee: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="chat-fee" className="text-right">
+                    Chat Fee (₦)
+                  </Label>
+                  <Input
+                    id="chat-fee"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={formData.chatFee}
+                    onChange={(e) => setFormData({ ...formData, chatFee: e.target.value })}
                     className="col-span-3"
                   />
                 </div>
