@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, Download, Search, Calendar, Pill, Activity, ArrowLeft, Loader2, Plus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -18,6 +19,7 @@ import {
   getConsultations,
   getPrescriptions,
   createPrescription,
+  sendPrescriptionToAdmin,
   getVitals,
   createVital,
   getLabResults,
@@ -45,6 +47,7 @@ const MedicalRecords = () => {
 
   const [consultations, setConsultations] = useState<ConsultationRecord[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [sendingRxId, setSendingRxId] = useState<string | null>(null);
   const [vitals, setVitals] = useState<VitalSign[]>([]);
   const [labs, setLabs] = useState<LabResult[]>([]);
 
@@ -52,7 +55,7 @@ const MedicalRecords = () => {
   const [isPrescriptionDialogOpen, setIsPrescriptionDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vitalForm, setVitalForm] = useState({ bloodPressure: "", heartRate: "", temperature: "", weight: "", height: "" });
-  const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "", refills: "0" });
+  const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "", refills: "0", sendToAdmin: true });
 
   // Scope used for every records fetch: patients scope by familyMemberId (their
   // own account owns the records); doctors scope by the target patient's userId.
@@ -150,15 +153,32 @@ const MedicalRecords = () => {
         dosage: prescriptionForm.dosage || undefined,
         instructions: prescriptionForm.instructions || undefined,
         refills: Number(prescriptionForm.refills) || 0,
+        sendToAdmin: prescriptionForm.sendToAdmin,
       });
-      toast({ title: "Prescription added" });
+      toast({
+        title: "Prescription added",
+        description: prescriptionForm.sendToAdmin ? "It was also sent to the admin team." : undefined,
+      });
       setIsPrescriptionDialogOpen(false);
-      setPrescriptionForm({ medication: "", dosage: "", instructions: "", refills: "0" });
+      setPrescriptionForm({ medication: "", dosage: "", instructions: "", refills: "0", sendToAdmin: true });
       await loadRecords();
     } catch (error) {
       toast({ title: "Couldn't add prescription", description: getErrorMessage(error), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSendToAdmin = async (prescriptionId: string) => {
+    setSendingRxId(prescriptionId);
+    try {
+      await sendPrescriptionToAdmin(prescriptionId);
+      toast({ title: "Sent to admin team" });
+      await loadRecords();
+    } catch (error) {
+      toast({ title: "Couldn't send prescription", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setSendingRxId(null);
     }
   };
 
@@ -287,6 +307,16 @@ const MedicalRecords = () => {
                           <Label>Refills</Label>
                           <Input type="number" min={0} value={prescriptionForm.refills} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, refills: e.target.value })} />
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="rx-records-send-admin"
+                            checked={prescriptionForm.sendToAdmin}
+                            onCheckedChange={(checked) => setPrescriptionForm({ ...prescriptionForm, sendToAdmin: checked === true })}
+                          />
+                          <Label htmlFor="rx-records-send-admin" className="font-normal cursor-pointer">
+                            Send this prescription to the admin team
+                          </Label>
+                        </div>
                       </div>
                       <div className="flex justify-end space-x-2 mt-4">
                         <Button variant="outline" onClick={() => setIsPrescriptionDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
@@ -404,6 +434,36 @@ const MedicalRecords = () => {
                           <p className="text-sm text-gray-500 mt-1">
                             {prescription.refills} refill{prescription.refills === 1 ? '' : 's'} remaining
                           </p>
+                          {prescription.adminStatus && prescription.adminStatus !== 'none' && (
+                            <Badge
+                              variant="outline"
+                              className={`mt-2 capitalize ${
+                                prescription.adminStatus === 'fulfilled'
+                                  ? 'text-green-600 border-green-600'
+                                  : prescription.adminStatus === 'rejected'
+                                  ? 'text-red-600 border-red-600'
+                                  : 'text-yellow-600 border-yellow-600'
+                              }`}
+                            >
+                              Admin: {prescription.adminStatus}
+                            </Badge>
+                          )}
+                          {prescription.adminStatus === 'rejected' && prescription.adminNote && (
+                            <p className="text-xs text-red-600 mt-1 max-w-xs">{prescription.adminNote}</p>
+                          )}
+                          {isDoctor && (!prescription.adminStatus || ['none', 'rejected'].includes(prescription.adminStatus)) && (
+                            <div className="mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={sendingRxId === prescription._id}
+                                onClick={() => handleSendToAdmin(prescription._id)}
+                              >
+                                {sendingRxId === prescription._id && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                                {prescription.adminStatus === 'rejected' ? 'Resend to admin' : 'Send to admin'}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

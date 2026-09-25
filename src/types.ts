@@ -54,6 +54,24 @@ export interface FamilyMember {
   createdAt?: string;
 }
 
+// Pre-consultation health questionnaire filled in by the patient. Mirrors the
+// backend's questionnaireSchema.
+export interface Questionnaire {
+  chiefComplaint: string;
+  symptoms: string[];
+  otherSymptoms?: string;
+  symptomDuration: "less-than-24h" | "1-3-days" | "4-7-days" | "1-4-weeks" | "over-1-month";
+  severity: number; // 1-10
+  medicalConditions: string[];
+  currentMedications?: string;
+  allergies?: string;
+  isPregnant: "yes" | "no" | "not-applicable";
+  previousTreatment?: string;
+  additionalInfo?: string;
+  confirmedAccurate: boolean;
+  submittedAt?: string;
+}
+
 export type AppointmentStatus =
   | "pending"
   | "confirmed"
@@ -72,6 +90,7 @@ export interface Appointment {
   type: "video" | "chat";
   appointmentType: "Initial Consultation" | "Follow-up" | "Check-up" | "Emergency";
   reason?: string;
+  questionnaire?: Questionnaire;
   status: AppointmentStatus;
   consultationFee: number;
   createdAt: string;
@@ -88,6 +107,7 @@ export interface ConsultationRequestItem {
   type: "video" | "chat";
   urgency: "low" | "medium" | "high";
   message?: string;
+  questionnaire?: Questionnaire;
   status: ConsultationRequestStatus;
   timeAgo?: string;
   appointment?: string;
@@ -108,6 +128,8 @@ export interface ConsultationRecord {
   status: "completed" | "follow-up-required" | "cancelled";
 }
 
+export type PrescriptionAdminStatus = "none" | "pending" | "fulfilled" | "rejected";
+
 export interface Prescription {
   _id: string;
   patient: string;
@@ -119,6 +141,17 @@ export interface Prescription {
   date: string;
   status: "active" | "completed" | "expired" | "cancelled";
   refills: number;
+  // Hand-off to the admin team
+  adminStatus?: PrescriptionAdminStatus;
+  sentToAdminAt?: string;
+  adminNote?: string;
+}
+
+// A prescription as seen in the admin queue (patient is populated)
+export interface AdminPrescription extends Omit<Prescription, "patient"> {
+  patient: { _id: string; firstName: string; lastName: string; email: string; phone?: string };
+  handledBy?: { _id: string; firstName: string; lastName: string };
+  handledAt?: string;
 }
 
 export interface VitalSign {
@@ -263,6 +296,7 @@ export interface AdminOverview {
   appointmentsToday: number;
   totalConsultationRequests: number;
   openReports: number;
+  pendingPrescriptions: number;
   planBreakdown: { plan: string; count: number }[];
   revenue: number;
   successfulPayments: number;

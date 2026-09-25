@@ -8,6 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import IntakeQuestionnaireForm from "@/components/IntakeQuestionnaireForm";
+import {
+  emptyQuestionnaire,
+  getQuestionnaireError,
+  toQuestionnairePayload,
+  type QuestionnaireDraft,
+} from "@/lib/questionnaire";
 import { Video, Clock, Star, ArrowLeft, MessageSquare, Loader2 } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +48,7 @@ const BookAppointment = () => {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState<string>("");
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireDraft>(emptyQuestionnaire());
 
   const [doctors, setDoctors] = useState<User[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -72,6 +80,13 @@ const BookAppointment = () => {
 
   const handleBooking = async () => {
     if (!selectedDoctor || !selectedTime || !selectedDate) return;
+
+    const problem = getQuestionnaireError(questionnaire);
+    if (problem) {
+      toast({ title: "Questionnaire incomplete", description: problem, variant: "destructive" });
+      return;
+    }
+
     setIsBooking(true);
     try {
       await bookAppointment({
@@ -81,6 +96,7 @@ const BookAppointment = () => {
         time: selectedTime,
         type: consultationType,
         reason: reason || undefined,
+        questionnaire: toQuestionnairePayload(questionnaire),
       });
 
       toast({
@@ -213,7 +229,7 @@ const BookAppointment = () => {
 
               {/* Time Slots */}
               {selectedDoctor && (
-                <Card>
+                <Card className="mb-6">
                   <CardHeader>
                     <CardTitle>Preferred Time</CardTitle>
                     <CardDescription>
@@ -237,6 +253,24 @@ const BookAppointment = () => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Health questionnaire - required before the doctor sees the booking */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Health Questionnaire</CardTitle>
+                  <CardDescription>
+                    Required. The doctor reads your answers before confirming your appointment.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <IntakeQuestionnaireForm
+                    idPrefix="booking"
+                    value={questionnaire}
+                    onChange={setQuestionnaire}
+                    disabled={isBooking}
+                  />
+                </CardContent>
+              </Card>
             </div>
 
             {/* Booking Summary */}
@@ -320,7 +354,7 @@ const BookAppointment = () => {
                   {/* Reason for visit */}
                   <div className="space-y-3 pt-4 border-t">
                     <div>
-                      <Label htmlFor="reason">Reason for Visit</Label>
+                      <Label htmlFor="reason">Additional note for the doctor (optional)</Label>
                       <Textarea
                         id="reason"
                         placeholder="Please describe your symptoms or reason for consultation..."
@@ -334,12 +368,17 @@ const BookAppointment = () => {
                   <Button
                     className="w-full"
                     size="lg"
-                    disabled={!selectedDoctor || !selectedTime || !selectedDate || isBooking}
+                    disabled={!selectedDoctor || !selectedTime || !selectedDate || isBooking || getQuestionnaireError(questionnaire) !== null}
                     onClick={handleBooking}
                   >
                     {isBooking && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Book {consultationType === 'video' ? 'Video' : 'Chat'} Appointment
                   </Button>
+                  {getQuestionnaireError(questionnaire) !== null && (
+                    <p className="text-xs text-amber-600 text-center">
+                      Complete the health questionnaire to book.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>

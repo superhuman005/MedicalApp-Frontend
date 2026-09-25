@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Clock, MessageSquare, Video, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { QuestionnaireButton, QuestionnaireSummary } from "@/components/QuestionnaireView";
 import { useNavigate } from "react-router-dom";
 import {
   getConsultationRequests,
@@ -170,10 +171,16 @@ const ConsultationRequests = () => {
                       </div>
                     </div>
 
-                    {request.message && (
+                    {request.questionnaire ? (
                       <div className="bg-secondary/50 p-3 rounded-lg mb-3">
-                        <p className="text-sm text-foreground">{request.message}</p>
+                        <QuestionnaireSummary questionnaire={request.questionnaire} />
                       </div>
+                    ) : (
+                      request.message && (
+                        <div className="bg-secondary/50 p-3 rounded-lg mb-3">
+                          <p className="text-sm text-foreground">{request.message}</p>
+                        </div>
+                      )
                     )}
 
                     <div className="flex items-center justify-between">
@@ -182,6 +189,7 @@ const ConsultationRequests = () => {
                         {request.timeAgo}
                       </div>
                       <div className="flex space-x-2">
+                        <QuestionnaireButton questionnaire={request.questionnaire} patientName={displayName} />
                         <Button
                           variant="outline"
                           size="sm"

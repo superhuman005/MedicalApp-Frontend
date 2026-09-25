@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { QuestionnaireButton } from "@/components/QuestionnaireView";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Video, VideoOff, Mic, MicOff, Phone, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
@@ -46,7 +48,7 @@ const VideoCall = () => {
   const [isEnding, setIsEnding] = useState(false);
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [isSubmittingRx, setIsSubmittingRx] = useState(false);
-  const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "" });
+  const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "", sendToAdmin: true });
   const [notes, setNotes] = useState("");
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
   const [recommendation, setRecommendation] = useState("");
@@ -278,10 +280,14 @@ const VideoCall = () => {
         medication: prescriptionForm.medication,
         dosage: prescriptionForm.dosage || undefined,
         instructions: prescriptionForm.instructions || undefined,
+        sendToAdmin: prescriptionForm.sendToAdmin,
       });
-      toast({ title: "Prescription added" });
+      toast({
+        title: "Prescription added",
+        description: prescriptionForm.sendToAdmin ? "It was also sent to the admin team." : undefined,
+      });
       setIsPrescriptionOpen(false);
-      setPrescriptionForm({ medication: "", dosage: "", instructions: "" });
+      setPrescriptionForm({ medication: "", dosage: "", instructions: "", sendToAdmin: true });
     } catch (error) {
       toast({ title: "Couldn't add prescription", description: getErrorMessage(error), variant: "destructive" });
     } finally {
@@ -422,7 +428,14 @@ const VideoCall = () => {
             </div>
           </div>
 
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 space-y-2">
+            {isDoctor && (
+              <QuestionnaireButton
+                questionnaire={appointment.questionnaire}
+                patientName={otherPartyName}
+                className="w-full text-xs"
+              />
+            )}
             <Link to={recordsHref}>
               <Button variant="outline" size="sm" className="w-full text-xs">
                 <FileText className="w-3 h-3 mr-1" />
@@ -475,6 +488,18 @@ const VideoCall = () => {
                           value={prescriptionForm.instructions}
                           onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
                         />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="rx-send-admin"
+                          checked={prescriptionForm.sendToAdmin}
+                          onCheckedChange={(checked) =>
+                            setPrescriptionForm({ ...prescriptionForm, sendToAdmin: checked === true })
+                          }
+                        />
+                        <Label htmlFor="rx-send-admin" className="font-normal cursor-pointer">
+                          Send this prescription to the admin team
+                        </Label>
                       </div>
                     </div>
                     <div className="flex justify-end space-x-2 mt-4">

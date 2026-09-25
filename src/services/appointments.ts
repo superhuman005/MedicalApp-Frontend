@@ -1,5 +1,6 @@
 import API from "./api";
 import type { Appointment, AppointmentStatus } from "@/types";
+import type { QuestionnaireDraft } from "@/lib/questionnaire";
 
 export interface BookAppointmentInput {
   doctorId: string;
@@ -9,6 +10,7 @@ export interface BookAppointmentInput {
   type: "video" | "chat";
   appointmentType?: string;
   reason?: string;
+  questionnaire: QuestionnaireDraft;
 }
 
 export const bookAppointment = async (input: BookAppointmentInput): Promise<Appointment> => {

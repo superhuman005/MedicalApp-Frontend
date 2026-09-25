@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageSquare, Users, RefreshCw, Clock, Send, Loader2 } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import IntakeQuestionnaireForm from "@/components/IntakeQuestionnaireForm";
+import {
+  emptyQuestionnaire,
+  getQuestionnaireError,
+  toQuestionnairePayload,
+  type QuestionnaireDraft,
+} from "@/lib/questionnaire";
 import { useToast } from "@/hooks/use-toast";
 import { createConsultationRequest } from "@/services/consultationRequests";
 import { getErrorMessage } from "@/services/api";
@@ -19,19 +25,26 @@ interface DoctorListProps {
 const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorListProps) => {
   const [consultationType, setConsultationType] = useState<'video' | 'chat' | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'low' | 'medium' | 'high'>('medium');
-  const [requestMessage, setRequestMessage] = useState('');
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireDraft>(emptyQuestionnaire());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const handleSubmitRequest = async () => {
     if (!selectedPatient || !consultationType) return;
 
+    const problem = getQuestionnaireError(questionnaire);
+    if (problem) {
+      toast({ title: "Questionnaire incomplete", description: problem, variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await createConsultationRequest({
         type: consultationType,
         urgency: urgencyLevel,
-        message: requestMessage || undefined,
+        message: questionnaire.chiefComplaint.trim(),
+        questionnaire: toQuestionnairePayload(questionnaire),
         familyMemberId: selectedPatient._id,
       });
 
@@ -41,7 +54,7 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
       });
 
       setConsultationType(null);
-      setRequestMessage('');
+      setQuestionnaire(emptyQuestionnaire());
       onRequestSent?.();
     } catch (error) {
       toast({
@@ -159,18 +172,21 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold mb-3">Describe Your Concern (Optional)</h3>
-                  <Textarea
-                    placeholder="Please describe your symptoms or what you'd like to discuss with the doctor..."
-                    value={requestMessage}
-                    onChange={(e) => setRequestMessage(e.target.value)}
-                    className="min-h-[100px]"
+                  <h3 className="text-lg font-semibold mb-1">Health Questionnaire</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    The doctor will read your answers before accepting, so please fill this in as fully as you can.
+                  </p>
+                  <IntakeQuestionnaireForm
+                    idPrefix="request"
+                    value={questionnaire}
+                    onChange={setQuestionnaire}
+                    disabled={isSubmitting}
                   />
                 </div>
 
                 <Button
                   onClick={handleSubmitRequest}
-                  disabled={!consultationType || isSubmitting}
+                  disabled={!consultationType || isSubmitting || getQuestionnaireError(questionnaire) !== null}
                   className="w-full h-12 text-lg"
                   size="lg"
                 >
@@ -186,6 +202,11 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
                     </>
                   )}
                 </Button>
+                {getQuestionnaireError(questionnaire) !== null && (
+                  <p className="text-xs text-amber-600 text-center -mt-2">
+                    Complete the health questionnaire to send your request.
+                  </p>
+                )}
 
                 <div className="bg-secondary/50 p-4 rounded-lg">
                   <h4 className="font-medium mb-2 flex items-center">
@@ -193,7 +214,7 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
                     What happens next?
                   </h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Your request will be sent to available doctors</li>
+                    <li>• Your request and questionnaire will be sent to available doctors</li>
                     <li>• You'll receive a notification when a doctor accepts</li>
                     <li>• The consultation will begin once matched</li>
                   </ul>

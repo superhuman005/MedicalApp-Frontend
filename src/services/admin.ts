@@ -1,5 +1,5 @@
 import API from "./api";
-import type { AdminOverview, User, Appointment, DoctorReportItem, Payment } from "@/types";
+import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription } from "@/types";
 
 export const getAdminOverview = async (): Promise<AdminOverview> => {
   const { data } = await API.get("/admin/overview");
@@ -49,4 +49,40 @@ export const markDoctorReportReviewed = async (id: string): Promise<DoctorReport
 export const getAllPayments = async (): Promise<Payment[]> => {
   const { data } = await API.get("/admin/payments");
   return data.payments;
+};
+
+export const getAdminPrescriptions = async (
+  status?: "pending" | "fulfilled" | "rejected"
+): Promise<AdminPrescription[]> => {
+  const { data } = await API.get("/admin/prescriptions", { params: { status } });
+  return data.prescriptions;
+};
+
+export const updateAdminPrescriptionStatus = async (
+  id: string,
+  status: "fulfilled" | "rejected",
+  note?: string
+): Promise<AdminPrescription> => {
+  const { data } = await API.patch(`/admin/prescriptions/${id}/status`, { status, note });
+  return data.prescription;
+};
+
+export const getAdmins = async (): Promise<User[]> => {
+  const { data } = await API.get("/admin/admins");
+  return data.admins;
+};
+
+export interface CreateAdminInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password?: string; // leave blank to have the server generate a temporary one
+}
+
+export const createAdmin = async (
+  input: CreateAdminInput
+): Promise<{ admin: User; temporaryPassword?: string }> => {
+  const { data } = await API.post("/admin/admins", input);
+  return { admin: data.admin, temporaryPassword: data.temporaryPassword };
 };

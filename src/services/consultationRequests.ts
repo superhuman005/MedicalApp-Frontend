@@ -1,10 +1,12 @@
 import API from "./api";
 import type { ConsultationRequestItem, ConsultationRequestStatus, Appointment } from "@/types";
+import type { QuestionnaireDraft } from "@/lib/questionnaire";
 
 export interface CreateConsultationRequestInput {
   type: "video" | "chat";
   urgency?: "low" | "medium" | "high";
   message?: string;
+  questionnaire: QuestionnaireDraft;
   familyMemberId?: string;
   doctorId?: string;
 }

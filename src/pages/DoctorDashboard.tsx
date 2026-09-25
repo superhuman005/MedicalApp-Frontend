@@ -30,7 +30,8 @@ import ConsultationRequests from "@/components/ConsultationRequests";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
-import { getMyAppointments, updateAppointmentStatus } from "@/services/appointments";
+import { getMyAppointments, updateAppointmentStatus, cancelAppointment } from "@/services/appointments";
+import { QuestionnaireButton, QuestionnaireSummary } from "@/components/QuestionnaireView";
 import { updateMyDoctorStatus, updateMyDoctorProfile } from "@/services/doctors";
 import type { Appointment, DoctorStatus } from "@/types";
 
@@ -63,6 +64,7 @@ const DoctorDashboard = () => {
   const [activeTab, setActiveTab] = useState<SectionKey>("requests");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -124,7 +126,27 @@ const DoctorDashboard = () => {
     }
   };
 
+  // Approve or decline a booking the patient made for a future/current slot.
+  // The doctor can read the patient's questionnaire before deciding.
+  const handleRespondToBooking = async (appointment: Appointment, decision: "confirmed" | "cancelled") => {
+    setRespondingId(appointment._id);
+    try {
+      if (decision === "confirmed") {
+        await updateAppointmentStatus(appointment._id, "confirmed");
+      } else {
+        await cancelAppointment(appointment._id, "Declined by doctor");
+      }
+      toast({ title: decision === "confirmed" ? "Appointment confirmed" : "Appointment declined" });
+      await loadAppointments();
+    } catch (error) {
+      toast({ title: "Couldn't update appointment", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
   const today = new Date();
+  const pendingBookings = appointments.filter((a) => a.status === "pending");
   const todayAppointments = appointments.filter((a) => isSameDay(new Date(a.date), today));
   const waitingCount = todayAppointments.filter((a) => a.status === 'waiting').length;
   const thisMonthAppointments = appointments.filter((a) => {
@@ -368,6 +390,58 @@ const DoctorDashboard = () => {
             </TabsContent>
 
             <TabsContent value="appointments" className="mt-0">
+              {pendingBookings.length > 0 && (
+                <Card className="mb-6 border-l-4 border-l-amber-400">
+                  <CardHeader>
+                    <CardTitle>Booking Requests</CardTitle>
+                    <CardDescription>
+                      {pendingBookings.length} appointment{pendingBookings.length === 1 ? '' : 's'} waiting for your confirmation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {pendingBookings.map((appointment) => {
+                      const displayName = appointment.familyMember
+                        ? appointment.familyMember.name
+                        : `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+                      return (
+                        <div key={appointment._id} className="p-4 border rounded-lg space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-medium">{displayName}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(appointment.date).toLocaleDateString()} at {appointment.time} • {appointment.type}
+                              </p>
+                            </div>
+                            <Badge variant="outline">{appointment.appointmentType}</Badge>
+                          </div>
+                          <QuestionnaireSummary questionnaire={appointment.questionnaire} />
+                          <div className="flex justify-end space-x-2">
+                            <QuestionnaireButton questionnaire={appointment.questionnaire} patientName={displayName} />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              disabled={respondingId === appointment._id}
+                              onClick={() => handleRespondToBooking(appointment, "cancelled")}
+                            >
+                              Decline
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={respondingId === appointment._id}
+                              onClick={() => handleRespondToBooking(appointment, "confirmed")}
+                            >
+                              {respondingId === appointment._id && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                              Confirm
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+
               {todayAppointments.length === 0 ? (
                 <Card>
                   <CardContent className="text-center py-12 text-muted-foreground">
@@ -408,6 +482,7 @@ const DoctorDashboard = () => {
                               >
                                 {appointment.status}
                               </Badge>
+                              <QuestionnaireButton questionnaire={appointment.questionnaire} patientName={displayName} />
                               <Button disabled={!canJoin} onClick={() => handleStartCall(appointment)}>
                                 {appointment.status === 'waiting' ? 'Start Call' : canJoin ? 'Join Call' : 'Not Ready'}
                               </Button>

@@ -4,9 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Video, Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
-  CheckCircle2, XCircle, ClipboardList,
+  CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -23,8 +27,13 @@ import {
   markDoctorReportReviewed,
   getUsers,
   getAllPayments,
+  getAdminPrescriptions,
+  updateAdminPrescriptionStatus,
+  getAdmins,
+  createAdmin,
 } from "@/services/admin";
-import type { AdminOverview, User, Appointment, DoctorReportItem, Payment } from "@/types";
+import { getSocket } from "@/services/socket";
+import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription } from "@/types";
 
 const nairaFormatter = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -45,12 +54,28 @@ const AdminDashboard = () => {
   const [reports, setReports] = useState<DoctorReportItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [prescriptions, setPrescriptions] = useState<AdminPrescription[]>([]);
+  const [admins, setAdmins] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actingOnId, setActingOnId] = useState<string | null>(null);
 
+  // Reject-prescription dialog
+  const [rejectingRx, setRejectingRx] = useState<AdminPrescription | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+
+  // Add-admin dialog
+  const emptyAdminForm = { firstName: "", lastName: "", email: "", phone: "", password: "" };
+  const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
+  const [adminForm, setAdminForm] = useState(emptyAdminForm);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+
   const loadAll = useCallback(async () => {
     try {
-      const [overviewData, pendingData, doctorsData, appointmentsData, reportsData, usersData, paymentsData] =
+      const [
+        overviewData, pendingData, doctorsData, appointmentsData, reportsData, usersData, paymentsData,
+        prescriptionsData, adminsData,
+      ] =
         await Promise.all([
           getAdminOverview(),
           getPendingDoctors(),
@@ -59,6 +84,8 @@ const AdminDashboard = () => {
           getAdminDoctorReports(),
           getUsers(),
           getAllPayments(),
+          getAdminPrescriptions(),
+          getAdmins(),
         ]);
       setOverview(overviewData);
       setPendingDoctors(pendingData);
@@ -67,6 +94,8 @@ const AdminDashboard = () => {
       setReports(reportsData);
       setUsers(usersData);
       setPayments(paymentsData);
+      setPrescriptions(prescriptionsData);
+      setAdmins(adminsData);
     } catch (error) {
       toast({ title: "Couldn't load admin data", description: getErrorMessage(error), variant: "destructive" });
     } finally {
@@ -76,6 +105,19 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     loadAll();
+  }, [loadAll]);
+
+  // Refresh the queue live when a doctor sends a new prescription
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const refresh = () => {
+      loadAll();
+    };
+    socket.on("prescription:new", refresh);
+    return () => {
+      socket.off("prescription:new", refresh);
+    };
   }, [loadAll]);
 
   const handleLogout = async () => {
@@ -120,6 +162,69 @@ const AdminDashboard = () => {
       setActingOnId(null);
     }
   };
+
+  const handleFulfillPrescription = async (prescriptionId: string) => {
+    setActingOnId(prescriptionId);
+    try {
+      await updateAdminPrescriptionStatus(prescriptionId, "fulfilled");
+      toast({ title: "Prescription marked as fulfilled", description: "The patient has been notified." });
+      await loadAll();
+    } catch (error) {
+      toast({ title: "Couldn't update prescription", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setActingOnId(null);
+    }
+  };
+
+  const handleConfirmRejectPrescription = async () => {
+    if (!rejectingRx || !rejectNote.trim()) return;
+    setActingOnId(rejectingRx._id);
+    try {
+      await updateAdminPrescriptionStatus(rejectingRx._id, "rejected", rejectNote.trim());
+      toast({ title: "Prescription rejected", description: "The patient and prescribing doctor have been notified." });
+      setRejectingRx(null);
+      setRejectNote("");
+      await loadAll();
+    } catch (error) {
+      toast({ title: "Couldn't reject prescription", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setActingOnId(null);
+    }
+  };
+
+  const handleCreateAdmin = async () => {
+    setIsCreatingAdmin(true);
+    try {
+      const { admin, temporaryPassword } = await createAdmin({
+        firstName: adminForm.firstName.trim(),
+        lastName: adminForm.lastName.trim(),
+        email: adminForm.email.trim(),
+        phone: adminForm.phone.trim() || undefined,
+        password: adminForm.password || undefined,
+      });
+      toast({ title: "Admin added", description: `${admin.firstName} ${admin.lastName} can now sign in as an admin.` });
+      // Only show credentials when the server generated the password for us
+      setCreatedCredentials(temporaryPassword ? { email: admin.email, password: temporaryPassword } : null);
+      setAdminForm(emptyAdminForm);
+      if (!temporaryPassword) setIsAdminDialogOpen(false);
+      setAdmins(await getAdmins());
+    } catch (error) {
+      toast({ title: "Couldn't add admin", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied to clipboard" });
+    } catch {
+      toast({ title: "Couldn't copy", description: "Select the text and copy it manually.", variant: "destructive" });
+    }
+  };
+
+  const pendingPrescriptionCount = prescriptions.filter((p) => p.adminStatus === "pending").length;
 
   const urgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -220,15 +325,19 @@ const AdminDashboard = () => {
         )}
 
         <Tabs defaultValue="pending-doctors" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="pending-doctors">
               Doctor Approvals{pendingDoctors.length > 0 && <Badge className="ml-2 bg-yellow-500">{pendingDoctors.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="reports">
               Recommendations{overview && overview.openReports > 0 && <Badge className="ml-2 bg-red-500">{overview.openReports}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="prescriptions">
+              Prescriptions{pendingPrescriptionCount > 0 && <Badge className="ml-2 bg-red-500">{pendingPrescriptionCount}</Badge>}
+            </TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="admins">Admins</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
           </TabsList>
 
@@ -373,6 +482,121 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="prescriptions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Prescriptions</CardTitle>
+                <CardDescription>Prescriptions doctors have sent to the admin team for processing</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {prescriptions.length === 0 ? (
+                  <p className="text-center text-sm text-gray-500 py-8">No prescriptions have been sent yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {prescriptions.map((rx) => {
+                      const patientName = `${rx.patient.firstName} ${rx.patient.lastName}`;
+                      return (
+                        <Card key={rx._id} className={rx.adminStatus === "pending" ? "border-l-4 border-l-yellow-400" : ""}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-start space-x-3">
+                                <Pill className="w-5 h-5 text-blue-600 mt-1" />
+                                <div>
+                                  <p className="font-semibold text-lg">{rx.medication}</p>
+                                  {rx.dosage && <p className="text-sm text-gray-600">{rx.dosage}</p>}
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Dr. {rx.prescribedBy.firstName} {rx.prescribedBy.lastName}
+                                    {rx.prescribedBy.specialization && ` (${rx.prescribedBy.specialization})`} • sent{" "}
+                                    {rx.sentToAdminAt ? new Date(rx.sentToAdminAt).toLocaleString() : "—"}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  rx.adminStatus === "fulfilled"
+                                    ? "text-green-600 border-green-600"
+                                    : rx.adminStatus === "rejected"
+                                    ? "text-red-600 border-red-600"
+                                    : "text-yellow-600 border-yellow-600"
+                                }
+                              >
+                                {rx.adminStatus}
+                              </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-gray-50 p-3 rounded-lg">
+                              <div>
+                                <p className="text-xs text-gray-500">Patient</p>
+                                <p className="font-medium">
+                                  {rx.familyMember ? `${rx.familyMember.name} (${rx.familyMember.relationship})` : patientName}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {rx.familyMember && `Account: ${patientName} • `}
+                                  {rx.patient.email}
+                                  {rx.patient.phone && ` • ${rx.patient.phone}`}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">Refills</p>
+                                <p className="font-medium">{rx.refills}</p>
+                              </div>
+                              {rx.instructions && (
+                                <div className="sm:col-span-2">
+                                  <p className="text-xs text-gray-500">Instructions</p>
+                                  <p>{rx.instructions}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {rx.adminStatus !== "pending" && (
+                              <p className="text-xs text-gray-500 mt-3">
+                                {rx.adminStatus === "fulfilled" ? "Fulfilled" : "Rejected"}
+                                {rx.handledBy && ` by ${rx.handledBy.firstName} ${rx.handledBy.lastName}`}
+                                {rx.handledAt && ` on ${new Date(rx.handledAt).toLocaleString()}`}
+                                {rx.adminNote && ` — ${rx.adminNote}`}
+                              </p>
+                            )}
+
+                            {rx.adminStatus === "pending" && (
+                              <div className="flex justify-end space-x-2 mt-3">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                  disabled={actingOnId === rx._id}
+                                  onClick={() => {
+                                    setRejectNote("");
+                                    setRejectingRx(rx);
+                                  }}
+                                >
+                                  <XCircle className="w-4 h-4 mr-1" />Reject
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  disabled={actingOnId === rx._id}
+                                  onClick={() => handleFulfillPrescription(rx._id)}
+                                >
+                                  {actingOnId === rx._id ? (
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  )}
+                                  Mark Fulfilled
+                                </Button>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="appointments">
             <Card>
               <CardHeader>
@@ -416,6 +640,42 @@ const AdminDashboard = () => {
                         <p className="text-xs text-gray-500">{u.email}</p>
                       </div>
                       <Badge variant="outline" className="capitalize">{u.role}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="admins">
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle>Admins</CardTitle>
+                  <CardDescription>People with access to this admin dashboard</CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setCreatedCredentials(null);
+                    setIsAdminDialogOpen(true);
+                  }}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />Add Admin
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {admins.map((a) => (
+                    <div key={a._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
+                      <div>
+                        <p className="font-medium">
+                          {a.firstName} {a.lastName}
+                          {a._id === user._id && <span className="text-xs text-gray-500 ml-2">(you)</span>}
+                        </p>
+                        <p className="text-xs text-gray-500">{a.email}</p>
+                      </div>
+                      <Badge variant="outline">{a.role === "superadmin" ? "Super Admin" : "Admin"}</Badge>
                     </div>
                   ))}
                 </div>
@@ -469,6 +729,170 @@ const AdminDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Reject prescription */}
+      <Dialog open={!!rejectingRx} onOpenChange={(open) => !open && setRejectingRx(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject prescription</DialogTitle>
+            <DialogDescription>
+              {rejectingRx && `${rejectingRx.medication} for ${rejectingRx.patient.firstName} ${rejectingRx.patient.lastName}`}
+              {" — the patient and prescribing doctor will see your reason."}
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label htmlFor="reject-note">Reason</Label>
+            <Textarea
+              id="reject-note"
+              className="mt-2"
+              maxLength={500}
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              placeholder="e.g. Out of stock, please prescribe an alternative"
+            />
+          </div>
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button variant="outline" onClick={() => setRejectingRx(null)} disabled={!!actingOnId}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmRejectPrescription}
+              disabled={!rejectNote.trim() || !!actingOnId}
+            >
+              {actingOnId && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Reject
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add admin */}
+      <Dialog
+        open={isAdminDialogOpen}
+        onOpenChange={(open) => {
+          if (isCreatingAdmin) return;
+          setIsAdminDialogOpen(open);
+          if (!open) setCreatedCredentials(null);
+        }}
+      >
+        <DialogContent>
+          {createdCredentials ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Admin created</DialogTitle>
+                <DialogDescription>
+                  Share these sign-in details securely. The password is only shown once — ask them to change it after
+                  their first login.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 bg-gray-50 p-4 rounded-lg text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Email</p>
+                  <p className="font-medium">{createdCredentials.email}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Temporary password</p>
+                    <p className="font-mono font-medium">{createdCredentials.password}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(createdCredentials.password)}>
+                    <Copy className="w-4 h-4 mr-1" />Copy
+                  </Button>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => {
+                    setCreatedCredentials(null);
+                    setIsAdminDialogOpen(false);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Add admin</DialogTitle>
+                <DialogDescription>
+                  The new admin can view everything on this dashboard and add other admins.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="admin-first">First name</Label>
+                    <Input
+                      id="admin-first"
+                      className="mt-1"
+                      value={adminForm.firstName}
+                      onChange={(e) => setAdminForm({ ...adminForm, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="admin-last">Last name</Label>
+                    <Input
+                      id="admin-last"
+                      className="mt-1"
+                      value={adminForm.lastName}
+                      onChange={(e) => setAdminForm({ ...adminForm, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="admin-new-email">Email</Label>
+                  <Input
+                    id="admin-new-email"
+                    type="email"
+                    className="mt-1"
+                    value={adminForm.email}
+                    onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="admin-phone">Phone (optional)</Label>
+                  <Input
+                    id="admin-phone"
+                    className="mt-1"
+                    value={adminForm.phone}
+                    onChange={(e) => setAdminForm({ ...adminForm, phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="admin-new-password">Password (optional)</Label>
+                  <Input
+                    id="admin-new-password"
+                    type="password"
+                    className="mt-1"
+                    placeholder="Leave blank to generate a temporary password"
+                    value={adminForm.password}
+                    onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">At least 8 characters if you set one.</p>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button variant="outline" onClick={() => setIsAdminDialogOpen(false)} disabled={isCreatingAdmin}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateAdmin}
+                  disabled={
+                    isCreatingAdmin ||
+                    !adminForm.firstName.trim() ||
+                    !adminForm.lastName.trim() ||
+                    !adminForm.email.trim() ||
+                    (adminForm.password.length > 0 && adminForm.password.length < 8)
+                  }
+                >
+                  {isCreatingAdmin && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Add Admin
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

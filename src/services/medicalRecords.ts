@@ -45,10 +45,16 @@ export interface CreatePrescriptionInput {
   instructions?: string;
   date?: string;
   refills?: number;
+  sendToAdmin?: boolean; // hand the prescription to the admin team on creation
 }
 
 export const createPrescription = async (input: CreatePrescriptionInput): Promise<Prescription> => {
   const { data } = await API.post("/medical-records/prescriptions", input);
+  return data.prescription;
+};
+
+export const sendPrescriptionToAdmin = async (id: string): Promise<Prescription> => {
+  const { data } = await API.patch(`/medical-records/prescriptions/${id}/send-to-admin`);
   return data.prescription;
 };
 
