@@ -265,7 +265,7 @@ const AdminDashboard = () => {
                 Logout
               </Button>
               <Avatar>
-                <AvatarFallback>{`${user.firstName[0] || ''}${user.lastName[0] || ''}`}</AvatarFallback>
+                <AvatarFallback>{`${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`}</AvatarFallback>
               </Avatar>
             </div>
           </div>
@@ -359,7 +359,7 @@ const AdminDashboard = () => {
                       <div key={doctor._id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-10 h-10">
-                            <AvatarFallback>{`${doctor.firstName[0]}${doctor.lastName[0]}`}</AvatarFallback>
+                            <AvatarFallback>{`${doctor.firstName?.[0] || ''}${doctor.lastName?.[0] || ''}`}</AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium">Dr. {doctor.firstName} {doctor.lastName}</p>
