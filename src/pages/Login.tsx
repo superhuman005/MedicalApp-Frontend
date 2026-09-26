@@ -5,83 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Video, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { getErrorMessage } from "@/services/api";
+import { dashboardPathFor } from "@/lib/dashboardPath";
 
+// One login form for everyone - patient, doctor or admin. We don't ask which
+// kind of account this is; the server authenticates the credentials and
+// tells us the role, and we route to the matching dashboard from there.
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [patientData, setPatientData] = useState({ email: "", password: "" });
-  const [doctorData, setDoctorData] = useState({ email: "", password: "" });
-  const [adminData, setAdminData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
 
-  const handlePatientLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      await login(patientData.email, patientData.password, "patient");
+      const loggedInUser = await login(formData.email, formData.password);
 
       toast({
         title: "Login Successful",
         description: "Welcome back! Redirecting...",
       });
 
-      navigate("/patient-dashboard");
-    } catch (error) {
-      toast({
-        title: "Login Failed",
-        description: getErrorMessage(error, "Invalid credentials"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDoctorLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      await login(doctorData.email, doctorData.password, "doctor");
-
-      toast({
-        title: "Login Successful",
-        description: "Welcome back Doctor!",
-      });
-
-      navigate("/doctor-dashboard");
-    } catch (error) {
-      toast({
-        title: "Login Failed",
-        description: getErrorMessage(error, "Invalid credentials"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      await login(adminData.email, adminData.password);
-
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-      });
-
-      navigate("/admin-dashboard");
+      navigate(dashboardPathFor(loggedInUser.role));
     } catch (error) {
       toast({
         title: "Login Failed",
@@ -120,144 +73,48 @@ const Login = () => {
         <Card>
           <CardHeader>
             <CardTitle>Welcome Back</CardTitle>
-            <CardDescription>
-              Choose your account type to sign in
-            </CardDescription>
+            <CardDescription>Enter your email and password to sign in</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="patient" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="patient">Patient</TabsTrigger>
-                <TabsTrigger value="doctor">Doctor</TabsTrigger>
-                <TabsTrigger value="admin">Admin</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="patient" className="space-y-4">
-                <form onSubmit={handlePatientLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="patient-email">Email</Label>
-                    <Input
-                      id="patient-email"
-                      type="email"
-                      placeholder="patient@example.com"
-                      value={patientData.email}
-                      onChange={(e) => setPatientData({ ...patientData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="patient-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="patient-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={patientData.password}
-                        onChange={(e) => setPatientData({ ...patientData, password: e.target.value })}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Sign In as Patient
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="doctor" className="space-y-4">
-                <form onSubmit={handleDoctorLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="doctor-email">Email</Label>
-                    <Input
-                      id="doctor-email"
-                      type="email"
-                      placeholder="doctor@example.com"
-                      value={doctorData.email}
-                      onChange={(e) => setDoctorData({ ...doctorData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doctor-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="doctor-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={doctorData.password}
-                        onChange={(e) => setDoctorData({ ...doctorData, password: e.target.value })}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Sign In as Doctor
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="admin" className="space-y-4">
-                <form onSubmit={handleAdminLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-email">Email</Label>
-                    <Input
-                      id="admin-email"
-                      type="email"
-                      placeholder="admin@example.com"
-                      value={adminData.email}
-                      onChange={(e) => setAdminData({ ...adminData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="admin-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={adminData.password}
-                        onChange={(e) => setAdminData({ ...adminData, password: e.target.value })}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Sign In as Admin
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Sign In
+              </Button>
+            </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">

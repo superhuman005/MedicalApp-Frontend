@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
+import { dashboardPathFor } from "@/lib/dashboardPath";
 import type { UserRole } from "@/types";
 
 interface ProtectedRouteProps {
@@ -9,12 +10,6 @@ interface ProtectedRouteProps {
   // admin-oversight page that both "admin" and "superadmin" can view).
   allowedUserType?: UserRole | UserRole[];
 }
-
-const dashboardPathFor = (role: UserRole) => {
-  if (role === "doctor") return "/doctor-dashboard";
-  if (role === "admin" || role === "superadmin") return "/admin-dashboard";
-  return "/patient-dashboard";
-};
 
 const ProtectedRoute = ({ children, allowedUserType }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();

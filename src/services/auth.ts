@@ -1,17 +1,15 @@
 import API from "./api";
 import type { User } from "@/types";
 
+// Public registration is patient-only - doctor accounts are created by an
+// admin (POST /api/admin/doctors), not through this endpoint.
 export interface RegisterInput {
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
   password: string;
-  role: "patient" | "doctor";
-  specialization?: string;
-  medicalLicenseNumber?: string;
-  yearsOfExperience?: number;
-  bio?: string;
+  role: "patient";
 }
 
 export interface AuthResponse {

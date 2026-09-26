@@ -4,15 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, Calendar, FileText, MessageSquare, Shield, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { dashboardPathFor } from "@/lib/dashboardPath";
 
 const Index = () => {
   const { user } = useAuth();
-  const dashboardPath =
-    user?.role === "doctor"
-      ? "/doctor-dashboard"
-      : user?.role === "admin" || user?.role === "superadmin"
-      ? "/admin-dashboard"
-      : "/patient-dashboard";
+  const dashboardPath = user ? dashboardPathFor(user.role) : "/patient-dashboard";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
@@ -67,18 +63,11 @@ const Index = () => {
                 </Button>
               </Link>
             ) : (
-              <>
-                <Link to="/signup">
-                  <Button size="lg" className="w-full sm:w-auto">
-                    Start Consultation
-                  </Button>
-                </Link>
-                <Link to="/signup">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    I'm a Doctor
-                  </Button>
-                </Link>
-              </>
+              <Link to="/signup">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Start Consultation
+                </Button>
+              </Link>
             )}
           </div>
         </div>
@@ -194,7 +183,6 @@ const Index = () => {
               <h3 className="font-semibold mb-4">Platform</h3>
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#" className="hover:text-white">For Patients</a></li>
-                <li><a href="#" className="hover:text-white">For Doctors</a></li>
                 <li><a href="#" className="hover:text-white">Pricing</a></li>
               </ul>
             </div>

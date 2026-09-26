@@ -72,6 +72,28 @@ export const getAdmins = async (): Promise<User[]> => {
   return data.admins;
 };
 
+export interface CreateDoctorInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password?: string; // leave blank to have the server generate a temporary one
+  specialization: string;
+  medicalLicenseNumber: string;
+  yearsOfExperience: number;
+  bio?: string;
+  consultationFee?: { video?: number; chat?: number };
+}
+
+// The only way to create a doctor account now - there is no public doctor
+// signup. The account is created already approved.
+export const createDoctor = async (
+  input: CreateDoctorInput
+): Promise<{ doctor: User; temporaryPassword?: string }> => {
+  const { data } = await API.post("/admin/doctors", input);
+  return { doctor: data.doctor, temporaryPassword: data.temporaryPassword };
+};
+
 export interface CreateAdminInput {
   firstName: string;
   lastName: string;

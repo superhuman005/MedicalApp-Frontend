@@ -2,15 +2,28 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import {
   Video, Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
-  CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy,
+  CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -22,6 +35,7 @@ import {
   getAllDoctors,
   approveDoctor,
   rejectDoctor,
+  createDoctor,
   getAllAppointments,
   getAdminDoctorReports,
   markDoctorReportReviewed,
@@ -41,12 +55,35 @@ const nairaFormatter = new Intl.NumberFormat("en-NG", {
   maximumFractionDigits: 0,
 });
 
+type SectionKey = "doctors" | "reports" | "prescriptions" | "appointments" | "users" | "admins" | "payments";
+
+const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof Stethoscope }[] = [
+  { key: "doctors", label: "Doctors", icon: Stethoscope },
+  { key: "reports", label: "Recommendations", icon: AlertTriangle },
+  { key: "prescriptions", label: "Prescriptions", icon: Pill },
+  { key: "appointments", label: "Appointments", icon: Calendar },
+  { key: "users", label: "Users", icon: Users },
+  { key: "admins", label: "Admins", icon: Shield },
+  { key: "payments", label: "Payments", icon: DollarSign },
+];
+
+const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
+  doctors: { title: "Doctors", subtitle: "Approvals and doctor accounts" },
+  reports: { title: "Recommendations", subtitle: "Private notes doctors send after a consultation" },
+  prescriptions: { title: "Prescriptions", subtitle: "Prescriptions sent to the admin team" },
+  appointments: { title: "Appointments", subtitle: "All appointments platform-wide" },
+  users: { title: "Users", subtitle: "Everyone registered on TeleMed" },
+  admins: { title: "Admins", subtitle: "People with access to this dashboard" },
+  payments: { title: "Payments", subtitle: "Paystack subscription transactions" },
+};
+
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
   const isSuperAdmin = user?.role === "superadmin";
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const [activeTab, setActiveTab] = useState<SectionKey>("doctors");
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [pendingDoctors, setPendingDoctors] = useState<User[]>([]);
   const [allDoctors, setAllDoctors] = useState<User[]>([]);
@@ -69,6 +106,16 @@ const AdminDashboard = () => {
   const [adminForm, setAdminForm] = useState(emptyAdminForm);
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+
+  // Add-doctor dialog - the only way to create a doctor account now
+  const emptyDoctorForm = {
+    firstName: "", lastName: "", email: "", phone: "",
+    specialization: "", medicalLicenseNumber: "", yearsOfExperience: "", password: "",
+  };
+  const [isDoctorDialogOpen, setIsDoctorDialogOpen] = useState(false);
+  const [doctorForm, setDoctorForm] = useState(emptyDoctorForm);
+  const [isCreatingDoctor, setIsCreatingDoctor] = useState(false);
+  const [createdDoctorCredentials, setCreatedDoctorCredentials] = useState<{ email: string; password: string } | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
@@ -215,6 +262,34 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreateDoctor = async () => {
+    setIsCreatingDoctor(true);
+    try {
+      const { doctor, temporaryPassword } = await createDoctor({
+        firstName: doctorForm.firstName.trim(),
+        lastName: doctorForm.lastName.trim(),
+        email: doctorForm.email.trim(),
+        phone: doctorForm.phone.trim() || undefined,
+        password: doctorForm.password || undefined,
+        specialization: doctorForm.specialization.trim(),
+        medicalLicenseNumber: doctorForm.medicalLicenseNumber.trim(),
+        yearsOfExperience: Number(doctorForm.yearsOfExperience),
+      });
+      toast({
+        title: "Doctor added",
+        description: `Dr. ${doctor.firstName} ${doctor.lastName} can now sign in and go online.`,
+      });
+      setCreatedDoctorCredentials(temporaryPassword ? { email: doctor.email, password: temporaryPassword } : null);
+      setDoctorForm(emptyDoctorForm);
+      if (!temporaryPassword) setIsDoctorDialogOpen(false);
+      await loadAll();
+    } catch (error) {
+      toast({ title: "Couldn't add doctor", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsCreatingDoctor(false);
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -234,6 +309,8 @@ const AdminDashboard = () => {
     }
   };
 
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || '?';
+
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -243,195 +320,256 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="flex items-center">
-                <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-                  <Video className="w-5 h-5 text-white" />
-                </div>
-                <span className="ml-2 text-xl font-bold text-gray-900">TeleMed Admin</span>
-              </Link>
-              <Badge variant="outline" className="ml-3 capitalize">
-                {user.role === "superadmin" ? "Super Admin" : "Admin"}
-              </Badge>
+    <SidebarProvider>
+      <Sidebar collapsible="icon" className="border-sidebar-border">
+        <SidebarHeader className="px-3 py-4">
+          <Link to="/" className="flex items-center gap-2 px-1">
+            <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
+              <Video className="w-[18px] h-[18px] text-sidebar-primary-foreground" />
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <Avatar>
-                <AvatarFallback>{`${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`}</AvatarFallback>
+            <span className="font-display font-semibold text-sidebar-foreground text-lg tracking-tight group-data-[collapsible=icon]:hidden">
+              TeleMed Admin
+            </span>
+          </Link>
+        </SidebarHeader>
+
+        <SidebarContent className="px-2">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {NAV_ITEMS.map((item) => (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      isActive={activeTab === item.key}
+                      onClick={() => setActiveTab(item.key)}
+                      tooltip={item.label}
+                      className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium relative data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary"
+                    >
+                      <item.icon className="shrink-0" />
+                      <span>{item.label}</span>
+                      {item.key === "doctors" && pendingDoctors.length > 0 && (
+                        <Badge className="ml-auto bg-yellow-500 hover:bg-yellow-500 group-data-[collapsible=icon]:hidden">
+                          {pendingDoctors.length}
+                        </Badge>
+                      )}
+                      {item.key === "reports" && overview && overview.openReports > 0 && (
+                        <Badge className="ml-auto bg-red-500 hover:bg-red-500 group-data-[collapsible=icon]:hidden">
+                          {overview.openReports}
+                        </Badge>
+                      )}
+                      {item.key === "prescriptions" && pendingPrescriptionCount > 0 && (
+                        <Badge className="ml-auto bg-red-500 hover:bg-red-500 group-data-[collapsible=icon]:hidden">
+                          {pendingPrescriptionCount}
+                        </Badge>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="px-2 pb-3">
+          <div className="rounded-lg bg-sidebar-accent/60 p-3 mb-2 group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-2.5">
+              <Avatar className="w-9 h-9 shrink-0">
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">
+                  {isSuperAdmin ? "Super Admin" : "Admin"}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+                <LogOut className="shrink-0" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Platform Overview</h1>
-
-        {/* Stats */}
-        {overview && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <Users className="w-4 h-4 mr-2" />Patients
-                </CardTitle>
-              </CardHeader>
-              <CardContent><div className="text-2xl font-bold">{overview.totalPatients}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <Stethoscope className="w-4 h-4 mr-2" />Doctors
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{overview.totalDoctors}</div>
-                {overview.pendingDoctors > 0 && (
-                  <p className="text-xs text-yellow-600 mt-1">{overview.pendingDoctors} pending approval</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <Calendar className="w-4 h-4 mr-2" />Appointments
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{overview.totalAppointments}</div>
-                <p className="text-xs text-gray-500 mt-1">{overview.appointmentsToday} today</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <DollarSign className="w-4 h-4 mr-2" />Revenue
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{nairaFormatter.format(overview.revenue)}</div>
-                <p className="text-xs text-gray-500 mt-1">{overview.successfulPayments} payments</p>
-              </CardContent>
-            </Card>
+      <SidebarInset>
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b bg-card/80 backdrop-blur px-4 sm:px-6 h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <SidebarTrigger className="md:hidden" />
+            <div className="min-w-0">
+              <h1 className="font-display font-semibold text-lg sm:text-xl text-foreground truncate">
+                {SECTION_COPY[activeTab].title}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">
+                {SECTION_COPY[activeTab].subtitle}
+              </p>
+            </div>
           </div>
-        )}
+          <Avatar className="w-8 h-8 md:hidden shrink-0">
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+        </header>
 
-        <Tabs defaultValue="pending-doctors" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="pending-doctors">
-              Doctor Approvals{pendingDoctors.length > 0 && <Badge className="ml-2 bg-yellow-500">{pendingDoctors.length}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="reports">
-              Recommendations{overview && overview.openReports > 0 && <Badge className="ml-2 bg-red-500">{overview.openReports}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="prescriptions">
-              Prescriptions{pendingPrescriptionCount > 0 && <Badge className="ml-2 bg-red-500">{pendingPrescriptionCount}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="appointments">Appointments</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="admins">Admins</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pending-doctors">
-            <Card>
-              <CardHeader>
-                <CardTitle>Doctor Approvals</CardTitle>
-                <CardDescription>
-                  New doctor sign-ups awaiting review before they can go live
-                  {!isSuperAdmin && " (view only - super admin access required to approve/reject)"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pendingDoctors.length === 0 ? (
-                  <p className="text-center text-sm text-gray-500 py-8">No doctors waiting for approval.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingDoctors.map((doctor) => (
-                      <div key={doctor._id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarFallback>{`${doctor.firstName?.[0] || ''}${doctor.lastName?.[0] || ''}`}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">Dr. {doctor.firstName} {doctor.lastName}</p>
-                            <p className="text-sm text-gray-600">{doctor.specialization} • {doctor.email}</p>
-                            <p className="text-xs text-gray-500">License: {doctor.medicalLicenseNumber} • {doctor.yearsOfExperience} yrs experience</p>
-                          </div>
-                        </div>
-                        {isSuperAdmin ? (
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => handleReject(doctor._id)}
-                              disabled={actingOnId === doctor._id}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleApprove(doctor._id)}
-                              disabled={actingOnId === doctor._id}
-                            >
-                              {actingOnId === doctor._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
-                              Approve
-                            </Button>
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                            Awaiting super admin
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
+        <div className="flex-1 px-4 sm:px-6 py-6 space-y-6">
+          {/* Stats - persistent context above every section */}
+          {overview && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Card className="border-none shadow-none bg-secondary/60">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                    <Users className="w-3.5 h-3.5" />Patients
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <div className="text-xl font-display font-semibold text-foreground">{overview.totalPatients}</div>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-none bg-accent/15">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                    <Stethoscope className="w-3.5 h-3.5" />Doctors
+                  </div>
+                  <div className="text-xl font-display font-semibold text-foreground">{overview.totalDoctors}</div>
+                  {overview.pendingDoctors > 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">{overview.pendingDoctors} pending approval</p>
+                  )}
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-none bg-secondary/60">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                    <Calendar className="w-3.5 h-3.5" />Appointments
+                  </div>
+                  <div className="text-xl font-display font-semibold text-foreground">{overview.totalAppointments}</div>
+                  <p className="text-xs text-muted-foreground mt-1">{overview.appointmentsToday} today</p>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-none bg-accent/15">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
+                    <DollarSign className="w-3.5 h-3.5" />Revenue
+                  </div>
+                  <div className="text-xl font-display font-semibold text-foreground">{nairaFormatter.format(overview.revenue)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">{overview.successfulPayments} payments</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>All Doctors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {allDoctors.map((doctor) => (
-                    <div key={doctor._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">Dr. {doctor.firstName} {doctor.lastName}</p>
-                        <p className="text-xs text-gray-500">{doctor.specialization}</p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={
-                          doctor.doctorApprovalStatus === "approved"
-                            ? "text-green-600 border-green-600"
-                            : doctor.doctorApprovalStatus === "rejected"
-                            ? "text-red-600 border-red-600"
-                            : "text-yellow-600 border-yellow-600"
-                        }
-                      >
-                        {doctor.doctorApprovalStatus}
-                      </Badge>
+          {activeTab === "doctors" && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div>
+                    <CardTitle>Doctor Approvals</CardTitle>
+                    <CardDescription>
+                      New doctor accounts awaiting review before they can go live
+                      {!isSuperAdmin && " (view only - super admin access required to approve/reject)"}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setCreatedDoctorCredentials(null);
+                      setIsDoctorDialogOpen(true);
+                    }}
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />Add Doctor
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {pendingDoctors.length === 0 ? (
+                    <p className="text-center text-sm text-gray-500 py-8">No doctors waiting for approval.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingDoctors.map((doctor) => (
+                        <div key={doctor._id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarFallback>{`${doctor.firstName?.[0] || ''}${doctor.lastName?.[0] || ''}`}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">Dr. {doctor.firstName} {doctor.lastName}</p>
+                              <p className="text-sm text-gray-600">{doctor.specialization} • {doctor.email}</p>
+                              <p className="text-xs text-gray-500">License: {doctor.medicalLicenseNumber} • {doctor.yearsOfExperience} yrs experience</p>
+                            </div>
+                          </div>
+                          {isSuperAdmin ? (
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={() => handleReject(doctor._id)}
+                                disabled={actingOnId === doctor._id}
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => handleApprove(doctor._id)}
+                                disabled={actingOnId === doctor._id}
+                              >
+                                {actingOnId === doctor._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                                Approve
+                              </Button>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                              Awaiting super admin
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  )}
+                </CardContent>
+              </Card>
 
-          <TabsContent value="reports">
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Doctors</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {allDoctors.length === 0 ? (
+                    <p className="text-center text-sm text-gray-500 py-8">No doctors yet. Add one to get started.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {allDoctors.map((doctor) => (
+                        <div key={doctor._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">Dr. {doctor.firstName} {doctor.lastName}</p>
+                            <p className="text-xs text-gray-500">{doctor.specialization}</p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={
+                              doctor.doctorApprovalStatus === "approved"
+                                ? "text-green-600 border-green-600"
+                                : doctor.doctorApprovalStatus === "rejected"
+                                ? "text-red-600 border-red-600"
+                                : "text-yellow-600 border-yellow-600"
+                            }
+                          >
+                            {doctor.doctorApprovalStatus}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {activeTab === "reports" && (
             <Card>
               <CardHeader>
                 <CardTitle>Doctor Recommendations</CardTitle>
@@ -480,9 +618,9 @@ const AdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="prescriptions">
+          {activeTab === "prescriptions" && (
             <Card>
               <CardHeader>
                 <CardTitle>Prescriptions</CardTitle>
@@ -595,9 +733,9 @@ const AdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="appointments">
+          {activeTab === "appointments" && (
             <Card>
               <CardHeader>
                 <CardTitle>All Appointments</CardTitle>
@@ -624,9 +762,9 @@ const AdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="users">
+          {activeTab === "users" && (
             <Card>
               <CardHeader>
                 <CardTitle>All Users</CardTitle>
@@ -645,9 +783,9 @@ const AdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="admins">
+          {activeTab === "admins" && (
             <Card>
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div>
@@ -681,9 +819,9 @@ const AdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="payments">
+          {activeTab === "payments" && (
             <Card>
               <CardHeader>
                 <CardTitle>Payments</CardTitle>
@@ -726,9 +864,9 @@ const AdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+          )}
+        </div>
+      </SidebarInset>
 
       {/* Reject prescription */}
       <Dialog open={!!rejectingRx} onOpenChange={(open) => !open && setRejectingRx(null)}>
@@ -893,7 +1031,171 @@ const AdminDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Add doctor - the only way to create a doctor account now */}
+      <Dialog
+        open={isDoctorDialogOpen}
+        onOpenChange={(open) => {
+          if (isCreatingDoctor) return;
+          setIsDoctorDialogOpen(open);
+          if (!open) setCreatedDoctorCredentials(null);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          {createdDoctorCredentials ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Doctor created</DialogTitle>
+                <DialogDescription>
+                  Share these sign-in details securely. The password is only shown once — ask them to change it after
+                  their first login.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 bg-gray-50 p-4 rounded-lg text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Email</p>
+                  <p className="font-medium">{createdDoctorCredentials.email}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">Temporary password</p>
+                    <p className="font-mono font-medium">{createdDoctorCredentials.password}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(createdDoctorCredentials.password)}>
+                    <Copy className="w-4 h-4 mr-1" />Copy
+                  </Button>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => {
+                    setCreatedDoctorCredentials(null);
+                    setIsDoctorDialogOpen(false);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Add doctor</DialogTitle>
+                <DialogDescription>
+                  There's no public doctor signup - this is the only way to create a doctor account. It's created
+                  already approved, so they can go online as soon as they sign in.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="doctor-first">First name</Label>
+                    <Input
+                      id="doctor-first"
+                      className="mt-1"
+                      value={doctorForm.firstName}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="doctor-last">Last name</Label>
+                    <Input
+                      id="doctor-last"
+                      className="mt-1"
+                      value={doctorForm.lastName}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="doctor-new-email">Email</Label>
+                  <Input
+                    id="doctor-new-email"
+                    type="email"
+                    className="mt-1"
+                    value={doctorForm.email}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="doctor-phone">Phone (optional)</Label>
+                  <Input
+                    id="doctor-phone"
+                    className="mt-1"
+                    value={doctorForm.phone}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="doctor-specialization">Specialization</Label>
+                  <Input
+                    id="doctor-specialization"
+                    className="mt-1"
+                    placeholder="e.g. Cardiology"
+                    value={doctorForm.specialization}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, specialization: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="doctor-license">Medical license number</Label>
+                  <Input
+                    id="doctor-license"
+                    className="mt-1"
+                    value={doctorForm.medicalLicenseNumber}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, medicalLicenseNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="doctor-experience">Years of experience</Label>
+                  <Input
+                    id="doctor-experience"
+                    type="number"
+                    min={0}
+                    className="mt-1"
+                    value={doctorForm.yearsOfExperience}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, yearsOfExperience: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="doctor-new-password">Password (optional)</Label>
+                  <Input
+                    id="doctor-new-password"
+                    type="password"
+                    className="mt-1"
+                    placeholder="Leave blank to generate a temporary password"
+                    value={doctorForm.password}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">At least 8 characters if you set one.</p>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button variant="outline" onClick={() => setIsDoctorDialogOpen(false)} disabled={isCreatingDoctor}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateDoctor}
+                  disabled={
+                    isCreatingDoctor ||
+                    !doctorForm.firstName.trim() ||
+                    !doctorForm.lastName.trim() ||
+                    !doctorForm.email.trim() ||
+                    !doctorForm.specialization.trim() ||
+                    !doctorForm.medicalLicenseNumber.trim() ||
+                    doctorForm.yearsOfExperience.trim() === "" ||
+                    Number(doctorForm.yearsOfExperience) < 0 ||
+                    (doctorForm.password.length > 0 && doctorForm.password.length < 8)
+                  }
+                >
+                  {isCreatingDoctor && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Add Doctor
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </SidebarProvider>
   );
 };
 
