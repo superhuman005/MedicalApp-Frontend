@@ -1,6 +1,14 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import type { User } from "@/types";
-import { registerRequest, loginRequest, getMeRequest, logoutRequest, RegisterInput } from "@/services/auth";
+import {
+  registerRequest,
+  registerDoctorRequest,
+  loginRequest,
+  getMeRequest,
+  logoutRequest,
+  RegisterInput,
+  RegisterDoctorInput,
+} from "@/services/auth";
 import { connectSocket, disconnectSocket } from "@/services/socket";
 import { getErrorMessage } from "@/services/api";
 
@@ -9,6 +17,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string, role?: "patient" | "doctor" | "admin" | "superadmin") => Promise<User>;
   register: (input: RegisterInput) => Promise<User>;
+  registerDoctor: (input: RegisterDoctorInput) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
   refreshUser: () => Promise<void>;
@@ -73,6 +82,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return newUser;
   }, []);
 
+  const registerDoctor = useCallback(async (input: RegisterDoctorInput) => {
+    const { token, user: newUser } = await registerDoctorRequest(input);
+    persistSession(token, newUser);
+    connectSocket(token);
+    setUser(newUser);
+    return newUser;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await logoutRequest();
@@ -102,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, registerDoctor, logout, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

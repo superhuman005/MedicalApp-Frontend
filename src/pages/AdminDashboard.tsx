@@ -26,6 +26,7 @@ import {
   CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import NotificationBell from "@/components/NotificationBell";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
@@ -413,9 +414,12 @@ const AdminDashboard = () => {
               </p>
             </div>
           </div>
-          <Avatar className="w-8 h-8 md:hidden shrink-0">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <NotificationBell />
+            <Avatar className="w-8 h-8 md:hidden shrink-0">
+              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
         </header>
 
         <div className="flex-1 px-4 sm:px-6 py-6 space-y-6">

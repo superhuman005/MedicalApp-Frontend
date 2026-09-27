@@ -22,6 +22,26 @@ export const registerRequest = async (input: RegisterInput): Promise<AuthRespons
   return { token: data.token, user: data.user };
 };
 
+// Doctor self-registration. Hits a separate, unlisted endpoint - see
+// authController.doctorRegister on the backend. Not used by the public
+// Signup page; only by the standalone (unlinked) DoctorSignup page.
+export interface RegisterDoctorInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  specialization: string;
+  medicalLicenseNumber: string;
+  yearsOfExperience: number;
+  bio?: string;
+}
+
+export const registerDoctorRequest = async (input: RegisterDoctorInput): Promise<AuthResponse> => {
+  const { data } = await API.post("/auth/doctor-register", input);
+  return { token: data.token, user: data.user };
+};
+
 export const loginRequest = async (
   email: string,
   password: string,

@@ -24,6 +24,7 @@ import {
   CreditCard, Loader2, Stethoscope, LayoutGrid, ChevronRight,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import NotificationBell from "@/components/NotificationBell";
 import PatientSubscription from "@/components/PatientSubscription";
 import PatientSelector from "@/components/PatientSelector";
 import PatientManagement from "@/components/PatientManagement";
@@ -268,6 +269,7 @@ const PatientDashboard = () => {
                 <span className="hidden sm:inline">Book Appointment</span>
               </Button>
             </Link>
+            <NotificationBell />
             <Avatar className="w-8 h-8 md:hidden">
               <AvatarImage src={user?.avatar} />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>

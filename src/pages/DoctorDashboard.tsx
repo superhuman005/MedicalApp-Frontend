@@ -23,6 +23,7 @@ import {
   Wallet, BarChart3, AlertTriangle,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import NotificationBell from "@/components/NotificationBell";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DoctorEarnings from "@/components/DoctorEarnings";
 import DoctorProfile from "@/components/DoctorProfile";
@@ -295,10 +296,13 @@ const DoctorDashboard = () => {
               </p>
             </div>
           </div>
-          <Avatar className="w-8 h-8 md:hidden shrink-0">
-            <AvatarImage src={user.avatar} />
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <NotificationBell />
+            <Avatar className="w-8 h-8 md:hidden shrink-0">
+              <AvatarImage src={user.avatar} />
+              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
         </header>
 
         <div className="flex-1 px-4 sm:px-6 py-6 space-y-6">

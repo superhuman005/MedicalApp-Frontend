@@ -1,5 +1,6 @@
 
 import { Link } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, Calendar, FileText, MessageSquare, Shield, Clock } from "lucide-react";
@@ -191,7 +192,8 @@ const Index = () => {
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#" className="hover:text-white">Help Center</a></li>
                 <li><a href="#" className="hover:text-white">Contact Us</a></li>
-                <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
+                <li><Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-white">Terms and Conditions</Link></li>
               </ul>
             </div>
             <div>
