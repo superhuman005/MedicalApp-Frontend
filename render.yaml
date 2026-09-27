@@ -1,0 +1,76 @@
+# This assumes the contents of this "backend" folder are the root of their own
+# Git repository. If you instead keep it inside a monorepo alongside the
+# frontend, uncomment "rootDir: backend" (or your folder's name) below.
+services:
+  - type: web
+    name: telemed-backend
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    # rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Set this to your real MongoDB Atlas (or other hosted) connection string
+      # in the Render dashboard - do not commit real credentials to render.yaml.
+      - key: MONGO_URI
+        sync: false
+      # Render can generate a strong random value for this automatically.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # Comma-separate multiple origins if you have several frontend deployments
+      # (e.g. a Vercel preview URL and your production domain).
+      - key: CLIENT_URL
+        sync: false
+      # Optional - leave blank to use the built-in rule-based fallback for /api/ai-chat
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Required for paid subscription upgrades - get from your Paystack dashboard
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      # Optional - defaults to <first CLIENT_URL>/subscription/callback
+      - key: PAYSTACK_CALLBACK_URL
+        sync: false
+      # Password for the sam.ola13@gmail.com admin account, used only the first time
+      # the account is created. If blank, a random one is printed once in the logs.
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+      # Optional - extra admin emails (comma separated) to create/promote on startup
+      - key: INITIAL_ADMIN_EMAILS
+        sync: false
+      # Your deployed frontend's URL - used to build links inside emails.
+      - key: FRONTEND_URL
+        sync: false
+      # Email delivery (transactional emails). Leave EMAIL_USER/EMAIL_PASSWORD
+      # blank to disable sending - the app keeps working, emails are just skipped.
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_SECURE
+        value: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        value: "TeleMed <noreply@telemed.example>"
+    # IMPORTANT: Render's free/starter web services have an EPHEMERAL filesystem -
+    # anything written to ./uploads (avatars, lab result files) is wiped on every
+    # deploy and restart. If you need uploads to survive, either:
+    #   1) switch the multer storage engine in src/middleware/upload.js to an
+    #      object store (S3, Cloudinary, etc.), or
+    #   2) attach a paid Render Persistent Disk by uncommenting below.
+    # disk:
+    #   name: telemed-uploads
+    #   mountPath: /opt/render/project/src/uploads   # adjust to match this service's actual deploy path
+    #   sizeGB: 1
