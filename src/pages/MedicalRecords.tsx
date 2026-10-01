@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, Download, Search, Calendar, Pill, Activity, ArrowLeft, Loader2, Plus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -55,7 +54,7 @@ const MedicalRecords = () => {
   const [isPrescriptionDialogOpen, setIsPrescriptionDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vitalForm, setVitalForm] = useState({ bloodPressure: "", heartRate: "", temperature: "", weight: "", height: "" });
-  const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "", refills: "0", sendToAdmin: true });
+  const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "", refills: "0" });
 
   // Scope used for every records fetch: patients scope by familyMemberId (their
   // own account owns the records); doctors scope by the target patient's userId.
@@ -153,14 +152,13 @@ const MedicalRecords = () => {
         dosage: prescriptionForm.dosage || undefined,
         instructions: prescriptionForm.instructions || undefined,
         refills: Number(prescriptionForm.refills) || 0,
-        sendToAdmin: prescriptionForm.sendToAdmin,
       });
       toast({
-        title: "Prescription added",
-        description: prescriptionForm.sendToAdmin ? "It was also sent to the admin team." : undefined,
+        title: "Sent to admin",
+        description: "The admin team will review it before it's sent to the patient.",
       });
       setIsPrescriptionDialogOpen(false);
-      setPrescriptionForm({ medication: "", dosage: "", instructions: "", refills: "0", sendToAdmin: true });
+      setPrescriptionForm({ medication: "", dosage: "", instructions: "", refills: "0" });
       await loadRecords();
     } catch (error) {
       toast({ title: "Couldn't add prescription", description: getErrorMessage(error), variant: "destructive" });
@@ -307,16 +305,10 @@ const MedicalRecords = () => {
                           <Label>Refills</Label>
                           <Input type="number" min={0} value={prescriptionForm.refills} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, refills: e.target.value })} />
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="rx-records-send-admin"
-                            checked={prescriptionForm.sendToAdmin}
-                            onCheckedChange={(checked) => setPrescriptionForm({ ...prescriptionForm, sendToAdmin: checked === true })}
-                          />
-                          <Label htmlFor="rx-records-send-admin" className="font-normal cursor-pointer">
-                            Send this prescription to the admin team
-                          </Label>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          This will be sent to the admin team for review - you can't send a prescription straight
+                          to a patient.
+                        </p>
                       </div>
                       <div className="flex justify-end space-x-2 mt-4">
                         <Button variant="outline" onClick={() => setIsPrescriptionDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
@@ -434,7 +426,9 @@ const MedicalRecords = () => {
                           <p className="text-sm text-gray-500 mt-1">
                             {prescription.refills} refill{prescription.refills === 1 ? '' : 's'} remaining
                           </p>
-                          {prescription.adminStatus && prescription.adminStatus !== 'none' && (
+                          {/* Patients only ever see 'fulfilled' prescriptions (see the backend's
+                              getPrescriptions), so this admin-workflow status is doctor-only context. */}
+                          {isDoctor && prescription.adminStatus && prescription.adminStatus !== 'none' && (
                             <Badge
                               variant="outline"
                               className={`mt-2 capitalize ${
@@ -445,10 +439,10 @@ const MedicalRecords = () => {
                                   : 'text-yellow-600 border-yellow-600'
                               }`}
                             >
-                              Admin: {prescription.adminStatus}
+                              Admin: {prescription.adminStatus === 'fulfilled' ? 'sent to patient' : prescription.adminStatus}
                             </Badge>
                           )}
-                          {prescription.adminStatus === 'rejected' && prescription.adminNote && (
+                          {isDoctor && prescription.adminStatus === 'rejected' && prescription.adminNote && (
                             <p className="text-xs text-red-600 mt-1 max-w-xs">{prescription.adminNote}</p>
                           )}
                           {isDoctor && (!prescription.adminStatus || ['none', 'rejected'].includes(prescription.adminStatus)) && (

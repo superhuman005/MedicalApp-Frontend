@@ -11,6 +11,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Settings, Loader2 } from "lucide-react";
 import type { User, DoctorStatus } from "@/types";
 
+// No pricing field here - doctors have no pricing controls anywhere in the
+// app. This is a subscription-only platform priced by an admin.
+
 interface DoctorProfileProps {
   doctor: User;
   onProfileUpdate: (updates: {
@@ -18,16 +21,9 @@ interface DoctorProfileProps {
     specialization?: string;
     yearsOfExperience?: number;
     avatar?: string;
-    consultationFee?: { video?: number; chat?: number };
   }) => Promise<void>;
   onStatusChange: (status: DoctorStatus) => Promise<void>;
 }
-
-const nairaFormatter = new Intl.NumberFormat("en-NG", {
-  style: "currency",
-  currency: "NGN",
-  maximumFractionDigits: 0,
-});
 
 const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfileProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,8 +33,6 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
     yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
     bio: doctor.bio || "",
     avatar: doctor.avatar || "",
-    videoFee: doctor.consultationFee?.video?.toString() || "",
-    chatFee: doctor.consultationFee?.chat?.toString() || "",
   });
 
   useEffect(() => {
@@ -47,10 +41,8 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
       yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
       bio: doctor.bio || "",
       avatar: doctor.avatar || "",
-      videoFee: doctor.consultationFee?.video?.toString() || "",
-      chatFee: doctor.consultationFee?.chat?.toString() || "",
     });
-  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar, doctor.consultationFee]);
+  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -60,13 +52,6 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
         yearsOfExperience: formData.yearsOfExperience ? Number(formData.yearsOfExperience) : undefined,
         bio: formData.bio,
         avatar: formData.avatar,
-        consultationFee: {
-          // Always send both values (falling back to the existing ones) so a
-          // partial edit can never accidentally clear the other fee - the
-          // backend replaces the whole consultationFee object on update.
-          video: formData.videoFee ? Number(formData.videoFee) : doctor.consultationFee?.video,
-          chat: formData.chatFee ? Number(formData.chatFee) : doctor.consultationFee?.chat,
-        },
       });
       setIsOpen(false);
     } finally {
@@ -127,7 +112,6 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
         </div>
         <p className="text-muted-foreground mb-2">
           {doctor.specialization || 'Specialty not set'} • {experienceLabel}
-          {doctor.consultationFee?.video ? ` • ${nairaFormatter.format(doctor.consultationFee.video)} video` : ''}
         </p>
         
         <div className="flex items-center space-x-2">
@@ -182,34 +166,6 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
                     min={0}
                     value={formData.yearsOfExperience}
                     onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="video-fee" className="text-right">
-                    Video Fee (₦)
-                  </Label>
-                  <Input
-                    id="video-fee"
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={formData.videoFee}
-                    onChange={(e) => setFormData({ ...formData, videoFee: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="chat-fee" className="text-right">
-                    Chat Fee (₦)
-                  </Label>
-                  <Input
-                    id="chat-fee"
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={formData.chatFee}
-                    onChange={(e) => setFormData({ ...formData, chatFee: e.target.value })}
                     className="col-span-3"
                   />
                 </div>

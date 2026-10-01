@@ -23,11 +23,11 @@ export const updateMyDoctorStatus = async (status: DoctorStatus): Promise<User> 
   return data.doctor;
 };
 
+// No pricing field - doctors have no pricing controls anywhere in the app.
 export interface UpdateDoctorProfileInput {
   bio?: string;
   specialization?: string;
   yearsOfExperience?: number;
-  consultationFee?: { video?: number; chat?: number };
   avatar?: string;
 }
 

@@ -2,15 +2,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Loader2, ArrowLeft, Video } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Send, Loader2, ArrowLeft, Video, MessageSquare, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { getMessages, sendMessage, ConversationModel } from "@/services/chat";
 import { getSocket } from "@/services/socket";
 import { getErrorMessage } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
-import type { ChatMessageItem } from "@/types";
+import { createDoctorReport, getMyDoctorReports } from "@/services/doctorReports";
+import type { ChatMessageItem, DoctorReportItem } from "@/types";
 
 interface ChatConsultationProps {
   conversationId: string;
@@ -20,7 +25,18 @@ interface ChatConsultationProps {
   otherPartyAvatar?: string;
   backTo?: string;
   videoCallHref?: string;
+  // When set and the viewer is the doctor, a "Description" tab is shown
+  // alongside Chat, letting the doctor write up the consultation and send it
+  // to the admin team (doctors have no way to send this straight to the
+  // patient - see DoctorReport on the backend).
+  appointmentId?: string;
 }
+
+const URGENCY_OPTIONS: { value: "low" | "medium" | "high"; label: string }[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
 
 const ChatConsultation = ({
   conversationId,
@@ -30,14 +46,26 @@ const ChatConsultation = ({
   otherPartyAvatar = "/placeholder.svg",
   backTo = "/patient-dashboard",
   videoCallHref,
+  appointmentId,
 }: ChatConsultationProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isDoctor = user?.role === "doctor";
+  const showDescriptionTab = isDoctor && !!appointmentId;
+
+  const [activeView, setActiveView] = useState<"chat" | "description">("chat");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Description tab state
+  const [description, setDescription] = useState("");
+  const [urgency, setUrgency] = useState<"low" | "medium" | "high">("low");
+  const [isSubmittingDescription, setIsSubmittingDescription] = useState(false);
+  const [pastDescriptions, setPastDescriptions] = useState<DoctorReportItem[]>([]);
+  const [isLoadingDescriptions, setIsLoadingDescriptions] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -77,6 +105,36 @@ const ChatConsultation = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Load this doctor's past descriptions for this appointment the first time
+  // they open the Description tab, so they can see what's already been sent.
+  useEffect(() => {
+    if (!showDescriptionTab || activeView !== "description") return;
+    setIsLoadingDescriptions(true);
+    getMyDoctorReports()
+      .then((reports) => setPastDescriptions(reports.filter((r) => r.appointment._id === appointmentId)))
+      .catch((error) => {
+        toast({ title: "Couldn't load past descriptions", description: getErrorMessage(error), variant: "destructive" });
+      })
+      .finally(() => setIsLoadingDescriptions(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, showDescriptionTab, appointmentId]);
+
+  const handleSubmitDescription = async () => {
+    if (!appointmentId || !description.trim()) return;
+    setIsSubmittingDescription(true);
+    try {
+      const report = await createDoctorReport({ appointmentId, recommendation: description.trim(), urgency });
+      setPastDescriptions((prev) => [report, ...prev]);
+      setDescription("");
+      setUrgency("low");
+      toast({ title: "Sent to admin", description: "Your description of this consultation was sent to the admin team." });
+    } catch (error) {
+      toast({ title: "Couldn't send description", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsSubmittingDescription(false);
+    }
+  };
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -143,8 +201,116 @@ const ChatConsultation = ({
             </Link>
           )}
         </div>
+
+        {showDescriptionTab && (
+          <div className="flex gap-1 mt-3 bg-green-700/50 rounded-lg p-1 w-fit">
+            <button
+              type="button"
+              onClick={() => setActiveView("chat")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeView === "chat" ? "bg-white text-green-700" : "text-white hover:bg-green-700"
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("description")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeView === "description" ? "bg-white text-green-700" : "text-white hover:bg-green-700"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Description
+            </button>
+          </div>
+        )}
       </div>
 
+      {activeView === "description" ? (
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-100 space-y-4">
+          <div className="bg-white rounded-lg p-4 shadow-sm space-y-3">
+            <div>
+              <Label htmlFor="consult-description">Describe this consultation</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Sent to the admin team for review - not visible to the patient.
+              </p>
+              <Textarea
+                id="consult-description"
+                className="min-h-[100px]"
+                placeholder="Symptoms discussed, assessment, recommendation..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={2000}
+              />
+            </div>
+            <div>
+              <Label>Urgency</Label>
+              <RadioGroup
+                className="flex gap-4 mt-2"
+                value={urgency}
+                onValueChange={(v) => setUrgency(v as "low" | "medium" | "high")}
+              >
+                {URGENCY_OPTIONS.map((opt) => (
+                  <div key={opt.value} className="flex items-center space-x-2">
+                    <RadioGroupItem value={opt.value} id={`urgency-${opt.value}`} />
+                    <Label htmlFor={`urgency-${opt.value}`} className="font-normal cursor-pointer">
+                      {opt.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            <Button
+              onClick={handleSubmitDescription}
+              disabled={!description.trim() || isSubmittingDescription}
+              className="w-full"
+            >
+              {isSubmittingDescription && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Send to Admin
+            </Button>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Previously sent for this consultation</p>
+            {isLoadingDescriptions ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : pastDescriptions.length === 0 ? (
+              <p className="text-sm text-gray-500">Nothing sent yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {pastDescriptions.map((report) => (
+                  <div key={report._id} className="bg-white rounded-lg p-3 shadow-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <Badge
+                        variant="outline"
+                        className={
+                          report.urgency === "high"
+                            ? "text-red-600 border-red-600"
+                            : report.urgency === "medium"
+                            ? "text-yellow-600 border-yellow-600"
+                            : "text-gray-600 border-gray-400"
+                        }
+                      >
+                        {report.urgency} urgency
+                      </Badge>
+                      <span className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{report.recommendation}</p>
+                    <Badge variant="outline" className="mt-2 capitalize">
+                      {report.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-100">
         {isLoading ? (
@@ -202,6 +368,8 @@ const ChatConsultation = ({
           </Button>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

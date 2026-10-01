@@ -36,6 +36,9 @@ export const getPrescriptions = async (params: RecordsScopeParams): Promise<Pres
   return data.prescriptions;
 };
 
+// No sendToAdmin flag - doctors have no way to send a prescription straight
+// to a patient. Every prescription automatically goes to the admin team for
+// review; only an admin can send it on to the patient from there.
 export interface CreatePrescriptionInput {
   patientId: string;
   familyMemberId?: string;
@@ -45,7 +48,6 @@ export interface CreatePrescriptionInput {
   instructions?: string;
   date?: string;
   refills?: number;
-  sendToAdmin?: boolean; // hand the prescription to the admin team on creation
 }
 
 export const createPrescription = async (input: CreatePrescriptionInput): Promise<Prescription> => {

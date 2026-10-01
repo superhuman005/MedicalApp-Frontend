@@ -23,10 +23,11 @@ import {
 } from "@/components/ui/sidebar";
 import {
   Video, Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
-  CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield,
+  CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield, Tag, Send,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "@/components/NotificationBell";
+import AdminPlans from "@/components/AdminPlans";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
@@ -56,7 +57,7 @@ const nairaFormatter = new Intl.NumberFormat("en-NG", {
   maximumFractionDigits: 0,
 });
 
-type SectionKey = "doctors" | "reports" | "prescriptions" | "appointments" | "users" | "admins" | "payments";
+type SectionKey = "doctors" | "reports" | "prescriptions" | "appointments" | "users" | "admins" | "plans" | "payments";
 
 const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof Stethoscope }[] = [
   { key: "doctors", label: "Doctors", icon: Stethoscope },
@@ -65,6 +66,7 @@ const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof Stethoscope }[] 
   { key: "appointments", label: "Appointments", icon: Calendar },
   { key: "users", label: "Users", icon: Users },
   { key: "admins", label: "Admins", icon: Shield },
+  { key: "plans", label: "Plans", icon: Tag },
   { key: "payments", label: "Payments", icon: DollarSign },
 ];
 
@@ -75,6 +77,7 @@ const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   appointments: { title: "Appointments", subtitle: "All appointments platform-wide" },
   users: { title: "Users", subtitle: "Everyone registered on TeleMed" },
   admins: { title: "Admins", subtitle: "People with access to this dashboard" },
+  plans: { title: "Plans", subtitle: "Subscription pricing - the only place prices are set in the app" },
   payments: { title: "Payments", subtitle: "Paystack subscription transactions" },
 };
 
@@ -211,11 +214,14 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleFulfillPrescription = async (prescriptionId: string) => {
+  // Doctors can only send a prescription to the admin team - this is the step
+  // that actually delivers it to the patient (adminStatus "fulfilled" under
+  // the hood; the patient's own prescriptions view only shows ones in this state).
+  const handleSendPrescriptionToPatient = async (prescriptionId: string) => {
     setActingOnId(prescriptionId);
     try {
       await updateAdminPrescriptionStatus(prescriptionId, "fulfilled");
-      toast({ title: "Prescription marked as fulfilled", description: "The patient has been notified." });
+      toast({ title: "Sent to patient", description: "The patient has been notified and can now see this prescription." });
       await loadAll();
     } catch (error) {
       toast({ title: "Couldn't update prescription", description: getErrorMessage(error), variant: "destructive" });
@@ -628,7 +634,9 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Prescriptions</CardTitle>
-                <CardDescription>Prescriptions doctors have sent to the admin team for processing</CardDescription>
+                <CardDescription>
+                  Doctors can only send prescriptions here - review each one, then send it on to the patient or reject it.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {prescriptions.length === 0 ? (
@@ -663,7 +671,7 @@ const AdminDashboard = () => {
                                     : "text-yellow-600 border-yellow-600"
                                 }
                               >
-                                {rx.adminStatus}
+                                {rx.adminStatus === "fulfilled" ? "sent to patient" : rx.adminStatus}
                               </Badge>
                             </div>
 
@@ -693,7 +701,7 @@ const AdminDashboard = () => {
 
                             {rx.adminStatus !== "pending" && (
                               <p className="text-xs text-gray-500 mt-3">
-                                {rx.adminStatus === "fulfilled" ? "Fulfilled" : "Rejected"}
+                                {rx.adminStatus === "fulfilled" ? "Sent to patient" : "Rejected"}
                                 {rx.handledBy && ` by ${rx.handledBy.firstName} ${rx.handledBy.lastName}`}
                                 {rx.handledAt && ` on ${new Date(rx.handledAt).toLocaleString()}`}
                                 {rx.adminNote && ` — ${rx.adminNote}`}
@@ -718,14 +726,14 @@ const AdminDashboard = () => {
                                   size="sm"
                                   className="bg-green-600 hover:bg-green-700"
                                   disabled={actingOnId === rx._id}
-                                  onClick={() => handleFulfillPrescription(rx._id)}
+                                  onClick={() => handleSendPrescriptionToPatient(rx._id)}
                                 >
                                   {actingOnId === rx._id ? (
                                     <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                                   ) : (
-                                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                                    <Send className="w-4 h-4 mr-1" />
                                   )}
-                                  Mark Fulfilled
+                                  Send to Patient
                                 </Button>
                               </div>
                             )}
@@ -824,6 +832,8 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           )}
+
+          {activeTab === "plans" && <AdminPlans />}
 
           {activeTab === "payments" && (
             <Card>

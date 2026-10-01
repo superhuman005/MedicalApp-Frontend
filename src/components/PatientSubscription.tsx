@@ -10,19 +10,24 @@ import { initializePayment, getMyPayments } from "@/services/payments";
 import { getErrorMessage } from "@/services/api";
 import type { Plan, Subscription, SubscriptionLimits, PlanId, Payment } from "@/types";
 
-const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
-  free: <Star className="w-6 h-6" />,
-  basic: <Zap className="w-6 h-6" />,
-  premium: <Crown className="w-6 h-6" />,
+// Plans are admin-defined and can be renamed, retired, or added to at any
+// time, so icon/colour can't be keyed by a fixed id. Free (price 0) gets a
+// star, the admin's chosen "Most Popular" plan gets a crown, everything else
+// gets a generic bolt - a reasonable default for any plan an admin creates.
+const planIcon = (plan: Pick<Plan, "price" | "isFeatured">) => {
+  if (plan.price === 0) return <Star className="w-6 h-6" />;
+  if (plan.isFeatured) return <Crown className="w-6 h-6" />;
+  return <Zap className="w-6 h-6" />;
 };
 
-const PLAN_COLORS: Record<PlanId, string> = {
-  free: "border-border",
-  basic: "border-primary/25",
-  premium: "border-accent/50",
+const planBorderColor = (plan: Pick<Plan, "price" | "isFeatured">) => {
+  if (plan.price === 0) return "border-border";
+  if (plan.isFeatured) return "border-accent/50";
+  return "border-primary/25";
 };
 
-const formatLimit = (n: number) => (n === Infinity ? "Unlimited" : n);
+// -1 is the backend's "unlimited" sentinel (Infinity doesn't survive JSON).
+const formatLimit = (n: number) => (n === -1 || n === Infinity ? "Unlimited" : n);
 
 const nairaFormatter = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -67,12 +72,13 @@ const PatientSubscription = () => {
   }, []);
 
   const handleSubscribe = async (planId: PlanId) => {
+    const plan = plans.find((p) => p.id === planId);
     setSubscribingTo(planId);
     try {
-      if (planId === "free") {
+      if (plan && plan.price === 0) {
         const updated = await subscribeToPlan(planId);
         setSubscription(updated);
-        toast({ title: "Plan Updated", description: "You're now on the Free plan." });
+        toast({ title: "Plan Updated", description: `You're now on the ${plan.name}.` });
       } else {
         // Paid plans go through Paystack - redirect to their hosted checkout.
         // On success Paystack sends the browser back to /subscription/callback,
@@ -114,7 +120,7 @@ const PatientSubscription = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                {subscription ? PLAN_ICONS[subscription.plan] : <Star className="w-6 h-6 text-gray-600" />}
+                {currentPlan ? planIcon(currentPlan) : <Star className="w-6 h-6 text-gray-600" />}
               </div>
               <div>
                 <h3 className="font-semibold">{currentPlan?.name || "Free Plan"}</h3>
@@ -140,7 +146,7 @@ const PatientSubscription = () => {
                 <div>
                   <span className="text-gray-600">Renewal:</span>
                   <p className="font-medium">
-                    {subscription.plan === 'free'
+                    {!currentPlan || currentPlan.price === 0
                       ? 'No billing required'
                       : subscription.endDate
                       ? new Date(subscription.endDate).toLocaleDateString()
@@ -157,17 +163,16 @@ const PatientSubscription = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
           const isCurrent = subscription?.plan === plan.id;
-          const isPopular = plan.id === 'premium';
           return (
-            <Card key={plan.id} className={`relative ${PLAN_COLORS[plan.id]} ${isPopular ? 'ring-2 ring-accent' : ''}`}>
-              {isPopular && (
+            <Card key={plan.id} className={`relative ${planBorderColor(plan)} ${plan.isFeatured ? 'ring-2 ring-accent' : ''}`}>
+              {plan.isFeatured && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                   <Badge className="bg-accent text-accent-foreground hover:bg-accent">Most Popular</Badge>
                 </div>
               )}
               <CardHeader className="text-center">
                 <div className="mx-auto w-12 h-12 bg-secondary rounded-lg flex items-center justify-center mb-3">
-                  {PLAN_ICONS[plan.id]}
+                  {planIcon(plan)}
                 </div>
                 <CardTitle className="text-xl font-display">{plan.name}</CardTitle>
                 <div className="space-y-1">
@@ -199,7 +204,7 @@ const PatientSubscription = () => {
                   onClick={() => handleSubscribe(plan.id)}
                 >
                   {subscribingTo === plan.id && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {isCurrent ? "Current Plan" : plan.id === "free" ? "Switch to Free" : (
+                  {isCurrent ? "Current Plan" : plan.price === 0 ? `Switch to ${plan.name}` : (
                     <>Pay with Paystack <ExternalLink className="w-3 h-3 ml-2" /></>
                   )}
                 </Button>

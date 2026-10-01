@@ -1,5 +1,5 @@
 import API from "./api";
-import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription } from "@/types";
+import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription, AdminPlan } from "@/types";
 
 export const getAdminOverview = async (): Promise<AdminOverview> => {
   const { data } = await API.get("/admin/overview");
@@ -72,6 +72,9 @@ export const getAdmins = async (): Promise<User[]> => {
   return data.admins;
 };
 
+// No pricing field - doctors have no pricing controls anywhere in the app.
+// This is a subscription-only platform; see the plan management functions
+// below for the only place prices can be set.
 export interface CreateDoctorInput {
   firstName: string;
   lastName: string;
@@ -82,7 +85,6 @@ export interface CreateDoctorInput {
   medicalLicenseNumber: string;
   yearsOfExperience: number;
   bio?: string;
-  consultationFee?: { video?: number; chat?: number };
 }
 
 // The only way to create a doctor account now - there is no public doctor
@@ -107,4 +109,42 @@ export const createAdmin = async (
 ): Promise<{ admin: User; temporaryPassword?: string }> => {
   const { data } = await API.post("/admin/admins", input);
   return { admin: data.admin, temporaryPassword: data.temporaryPassword };
+};
+
+// --- Subscription plans ---------------------------------------------------
+// The only place prices are set anywhere in the app. Doctors have no
+// pricing controls; any admin can create a plan or change a price here.
+
+export const getAdminPlans = async (): Promise<AdminPlan[]> => {
+  const { data } = await API.get("/admin/plans");
+  return data.plans;
+};
+
+export interface PlanInput {
+  planId?: string; // required on create; ignored/rejected on update
+  name: string;
+  price: number; // NGN
+  period?: string;
+  familyMemberLimit: number;
+  videoConsultationsLimit?: number; // -1 = unlimited
+  chatConsultationsLimit?: number; // -1 = unlimited
+  features?: string[];
+  isFeatured?: boolean;
+  isActive?: boolean;
+  isDefault?: boolean;
+  sortOrder?: number;
+}
+
+export const createPlan = async (input: PlanInput): Promise<AdminPlan> => {
+  const { data } = await API.post("/admin/plans", input);
+  return data.plan;
+};
+
+export const updatePlan = async (id: string, input: Partial<PlanInput>): Promise<AdminPlan> => {
+  const { data } = await API.patch(`/admin/plans/${id}`, input);
+  return data.plan;
+};
+
+export const deletePlan = async (id: string): Promise<void> => {
+  await API.delete(`/admin/plans/${id}`);
 };

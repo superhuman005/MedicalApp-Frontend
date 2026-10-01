@@ -5,11 +5,6 @@ export type UserRole = "patient" | "doctor" | "admin" | "superadmin";
 export type DoctorStatus = "online" | "offline" | "busy" | "available";
 export type DoctorApprovalStatus = "pending" | "approved" | "rejected";
 
-export interface ConsultationFee {
-  video: number;
-  chat: number;
-}
-
 export interface User {
   _id: string;
   firstName: string;
@@ -26,7 +21,8 @@ export interface User {
   medicalLicenseNumber?: string;
   yearsOfExperience?: number;
   bio?: string;
-  consultationFee?: ConsultationFee;
+  // No per-doctor pricing - this is a subscription-only platform priced by
+  // an admin (see Plan/AdminPlan below). Doctors have no pricing controls.
   status?: DoctorStatus;
   rating?: number;
   ratingCount?: number;
@@ -92,7 +88,6 @@ export interface Appointment {
   reason?: string;
   questionnaire?: Questionnaire;
   status: AppointmentStatus;
-  consultationFee: number;
   createdAt: string;
 }
 
@@ -181,7 +176,10 @@ export interface LabResult {
   fileName?: string;
 }
 
-export type PlanId = "free" | "basic" | "premium";
+// Plan ids are admin-defined (see AdminPlan below), not a fixed set -
+// "free"/"basic"/"premium" are just the defaults a fresh install starts
+// with; an admin can rename, retire or add to them at any time.
+export type PlanId = string;
 
 export interface Plan {
   id: PlanId;
@@ -191,6 +189,28 @@ export interface Plan {
   period: string;
   familyMembers: number;
   features: string[];
+  isFeatured?: boolean;
+}
+
+// The full admin-side view of a plan (includes fields patients never see:
+// consultation limits, active/default flags). Admin dashboard only.
+export interface AdminPlan {
+  _id: string;
+  planId: string;
+  name: string;
+  price: number;
+  currency: string;
+  period: string;
+  familyMemberLimit: number;
+  videoConsultationsLimit: number; // -1 = unlimited
+  chatConsultationsLimit: number; // -1 = unlimited
+  features: string[];
+  isFeatured: boolean;
+  isActive: boolean;
+  isDefault: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SubscriptionLimits {
