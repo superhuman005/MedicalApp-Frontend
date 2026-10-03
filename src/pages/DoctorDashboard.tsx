@@ -246,7 +246,10 @@ const DoctorDashboard = () => {
         </SidebarContent>
 
         <SidebarFooter className="px-2 pb-3">
-          <div className="rounded-lg bg-sidebar-accent/60 p-3 mb-2 group-data-[collapsible=icon]:hidden">
+          <Link
+            to={`/doctors/${user._id}`}
+            className="rounded-lg bg-sidebar-accent/60 hover:bg-sidebar-accent p-3 mb-2 group-data-[collapsible=icon]:hidden block transition-colors"
+          >
             <div className="flex items-center gap-2.5">
               <div className="relative shrink-0">
                 <Avatar className="w-9 h-9">
@@ -269,10 +272,10 @@ const DoctorDashboard = () => {
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
                   Dr. {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">{user.specialization || 'General Practice'}</p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">{user.specialization || 'General Practice'} • View profile</p>
               </div>
             </div>
-          </div>
+          </Link>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
@@ -423,6 +426,15 @@ const DoctorDashboard = () => {
                           <QuestionnaireSummary questionnaire={appointment.questionnaire} />
                           <div className="flex justify-end space-x-2">
                             <QuestionnaireButton questionnaire={appointment.questionnaire} patientName={displayName} />
+                            <Link
+                              to={`/medical-records?patientId=${appointment.patient._id}${
+                                appointment.familyMember ? `&familyMemberId=${appointment.familyMember._id}` : ''
+                              }`}
+                            >
+                              <Button variant="outline" size="sm">
+                                View Records
+                              </Button>
+                            </Link>
                             <Button
                               variant="outline"
                               size="sm"

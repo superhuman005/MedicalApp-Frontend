@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Clock, MessageSquare, Video, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Clock, MessageSquare, Video, CheckCircle, XCircle, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QuestionnaireButton, QuestionnaireSummary } from "@/components/QuestionnaireView";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   getConsultationRequests,
   acceptConsultationRequest,
@@ -190,6 +190,16 @@ const ConsultationRequests = () => {
                       </div>
                       <div className="flex space-x-2">
                         <QuestionnaireButton questionnaire={request.questionnaire} patientName={displayName} />
+                        <Link
+                          to={`/medical-records?patientId=${request.patient._id}${
+                            request.familyMember ? `&familyMemberId=${request.familyMember._id}` : ''
+                          }`}
+                        >
+                          <Button variant="outline" size="sm">
+                            <FileText className="w-4 h-4 mr-1" />
+                            View Records
+                          </Button>
+                        </Link>
                         <Button
                           variant="outline"
                           size="sm"

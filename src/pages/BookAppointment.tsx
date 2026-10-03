@@ -57,6 +57,12 @@ const BookAppointment = () => {
         setFamilyMembers(familyData);
         const self = familyData.find((f) => f.isSelf);
         if (self) setSelectedFamilyMemberId(self._id);
+
+        // Arriving from a doctor's profile page ("Book Appointment") preselects them.
+        const preselectDoctorId = searchParams.get('doctorId');
+        if (preselectDoctorId && doctorsData.some((d) => d._id === preselectDoctorId)) {
+          setSelectedDoctor(preselectDoctorId);
+        }
       } catch (error) {
         toast({
           title: "Couldn't load doctors",
@@ -67,6 +73,9 @@ const BookAppointment = () => {
         setIsLoading(false);
       }
     })();
+    // Only read the doctorId preselect once on initial load, not on every
+    // searchParams change elsewhere on the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   const selectedDoctorData = selectedDoctor ? doctors.find((d) => d._id === selectedDoctor) : null;
@@ -212,6 +221,11 @@ const BookAppointment = () => {
                                   </div>
                                 </div>
                               </div>
+                              <Link to={`/doctors/${doctor._id}`} onClick={(e) => e.stopPropagation()}>
+                                <Button variant="outline" size="sm">
+                                  View Profile
+                                </Button>
+                              </Link>
                             </div>
                           </div>
                         );

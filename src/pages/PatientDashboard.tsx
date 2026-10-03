@@ -219,7 +219,10 @@ const PatientDashboard = () => {
         </SidebarContent>
 
         <SidebarFooter className="px-2 pb-3">
-          <div className="rounded-lg bg-sidebar-accent/60 p-3 mb-2 group-data-[collapsible=icon]:hidden">
+          <Link
+            to="/profile"
+            className="rounded-lg bg-sidebar-accent/60 hover:bg-sidebar-accent p-3 mb-2 group-data-[collapsible=icon]:hidden block transition-colors"
+          >
             <div className="flex items-center gap-2.5">
               <Avatar className="w-9 h-9 shrink-0">
                 <AvatarImage src={user?.avatar} />
@@ -232,11 +235,11 @@ const PatientDashboard = () => {
                   {user?.firstName} {user?.lastName}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 capitalize truncate">
-                  {subscription?.plan || 'free'} plan
+                  {subscription?.plan || 'free'} plan • View profile
                 </p>
               </div>
             </div>
-          </div>
+          </Link>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={handleLogout} tooltip="Logout">

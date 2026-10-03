@@ -17,6 +17,8 @@ import VideoCall from "./pages/VideoCall";
 import BookAppointment from "./pages/BookAppointment";
 import MedicalRecords from "./pages/MedicalRecords";
 import SubscriptionCallback from "./pages/SubscriptionCallback";
+import DoctorProfilePage from "./pages/DoctorProfilePage";
+import MyProfile from "./pages/MyProfile";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -93,6 +95,22 @@ const App = () => (
                 <MedicalRecords />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <MyProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctors/:id"
+            element={
+              <ProtectedRoute>
+                <DoctorProfilePage />
+              </ProtectedRoute>
+            }
           />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
