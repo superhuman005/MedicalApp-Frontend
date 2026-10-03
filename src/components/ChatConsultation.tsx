@@ -7,14 +7,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Send, Loader2, ArrowLeft, Video, MessageSquare, FileText } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Send, Loader2, ArrowLeft, Video, MessageSquare, FileText, PhoneOff } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { getMessages, sendMessage, ConversationModel } from "@/services/chat";
 import { getSocket } from "@/services/socket";
 import { getErrorMessage } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { createDoctorReport, getMyDoctorReports } from "@/services/doctorReports";
+import { updateAppointmentStatus } from "@/services/appointments";
+import RateDoctorDialog from "@/components/RateDoctorDialog";
 import type { ChatMessageItem, DoctorReportItem } from "@/types";
 
 interface ChatConsultationProps {
@@ -25,11 +28,17 @@ interface ChatConsultationProps {
   otherPartyAvatar?: string;
   backTo?: string;
   videoCallHref?: string;
-  // When set and the viewer is the doctor, a "Description" tab is shown
-  // alongside Chat, letting the doctor write up the consultation and send it
-  // to the admin team (doctors have no way to send this straight to the
-  // patient - see DoctorReport on the backend).
+  // When set, both an "End Consultation" action and (doctor-only) a
+  // "Description" tab become available - both need a real appointment to act
+  // on. The Description tab lets the doctor write up the consultation and
+  // send it to the admin team (doctors have no way to send this straight to
+  // the patient - see DoctorReport on the backend). Ending marks the
+  // appointment completed and, for the patient, offers a chance to rate the
+  // doctor while they wait for a prescription (if any) to clear admin review.
   appointmentId?: string;
+  // Needed only for the patient's post-end rating prompt.
+  doctorId?: string;
+  doctorName?: string;
 }
 
 const URGENCY_OPTIONS: { value: "low" | "medium" | "high"; label: string }[] = [
@@ -47,9 +56,12 @@ const ChatConsultation = ({
   backTo = "/patient-dashboard",
   videoCallHref,
   appointmentId,
+  doctorId,
+  doctorName,
 }: ChatConsultationProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const isDoctor = user?.role === "doctor";
   const showDescriptionTab = isDoctor && !!appointmentId;
 
@@ -59,6 +71,12 @@ const ChatConsultation = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // End-consultation state - available to both roles whenever this chat is
+  // tied to a real appointment.
+  const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
+  const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   // Description tab state
   const [description, setDescription] = useState("");
@@ -136,6 +154,27 @@ const ChatConsultation = ({
     }
   };
 
+  const handleEndConsultation = async () => {
+    if (!appointmentId) return;
+    setIsEnding(true);
+    try {
+      await updateAppointmentStatus(appointmentId, "completed");
+      setIsEndDialogOpen(false);
+      if (isDoctor) {
+        toast({ title: "Consultation ended" });
+        navigate(backTo);
+      } else {
+        // Offer a chance to rate the doctor while any prescription they send
+        // clears admin review - RateDoctorDialog's onDone handles navigating away.
+        setIsRateDialogOpen(true);
+      }
+    } catch (error) {
+      toast({ title: "Couldn't end consultation", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const handleSendMessage = useCallback(async () => {
@@ -199,6 +238,17 @@ const ChatConsultation = ({
                 <Video className="w-5 h-5" />
               </Button>
             </Link>
+          )}
+          {appointmentId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-red-600 p-2"
+              onClick={() => setIsEndDialogOpen(true)}
+              aria-label="End consultation"
+            >
+              <PhoneOff className="w-5 h-5" />
+            </Button>
           )}
         </div>
 
@@ -369,6 +419,38 @@ const ChatConsultation = ({
         </div>
       </div>
       </>
+      )}
+
+      <Dialog open={isEndDialogOpen} onOpenChange={(open) => !isEnding && setIsEndDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>End this consultation?</DialogTitle>
+            <DialogDescription>
+              This will end your chat with {otherPartyName} and mark the consultation as completed. You can still
+              view the message history afterward.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button variant="outline" onClick={() => setIsEndDialogOpen(false)} disabled={isEnding}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleEndConsultation} disabled={isEnding}>
+              {isEnding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              End Consultation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {!isDoctor && appointmentId && doctorId && doctorName && (
+        <RateDoctorDialog
+          open={isRateDialogOpen}
+          onOpenChange={setIsRateDialogOpen}
+          doctorId={doctorId}
+          doctorName={doctorName}
+          appointmentId={appointmentId}
+          onDone={() => navigate(backTo)}
+        />
       )}
     </div>
   );

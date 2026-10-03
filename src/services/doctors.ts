@@ -1,5 +1,5 @@
 import API from "./api";
-import type { User, DoctorStatus } from "@/types";
+import type { User, DoctorStatus, DoctorPatient } from "@/types";
 
 export interface GetDoctorsParams {
   specialty?: string;
@@ -34,4 +34,11 @@ export interface UpdateDoctorProfileInput {
 export const updateMyDoctorProfile = async (input: UpdateDoctorProfileInput): Promise<User> => {
   const { data } = await API.patch("/doctors/me/profile", input);
   return data.doctor;
+};
+
+// The patients (and patients' family members) this doctor has actually had a
+// qualifying appointment with - not every patient on the platform.
+export const getMyPatients = async (): Promise<DoctorPatient[]> => {
+  const { data } = await API.get("/doctors/me/patients");
+  return data.patients;
 };

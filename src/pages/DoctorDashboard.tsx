@@ -33,8 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
 import { getMyAppointments, updateAppointmentStatus, cancelAppointment } from "@/services/appointments";
 import { QuestionnaireButton, QuestionnaireSummary } from "@/components/QuestionnaireView";
-import { updateMyDoctorStatus, updateMyDoctorProfile } from "@/services/doctors";
-import type { Appointment, DoctorStatus } from "@/types";
+import { updateMyDoctorStatus, updateMyDoctorProfile, getMyPatients } from "@/services/doctors";
+import type { Appointment, DoctorStatus, DoctorPatient } from "@/types";
 
 type SectionKey = "requests" | "appointments" | "patients" | "earnings" | "analytics";
 
@@ -67,6 +67,14 @@ const DoctorDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<string | null>(null);
 
+  // Patients this doctor has actually treated - not every patient on the
+  // platform. Backed by GET /api/doctors/me/patients, which only counts
+  // confirmed/in-progress/completed appointments (not merely-requested or
+  // cancelled ones), matching exactly what the backend will actually let
+  // this doctor open records for.
+  const [patients, setPatients] = useState<DoctorPatient[]>([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+
   const loadAppointments = useCallback(async () => {
     try {
       const data = await getMyAppointments();
@@ -82,9 +90,25 @@ const DoctorDashboard = () => {
     }
   }, [toast]);
 
+  const loadPatients = useCallback(async () => {
+    try {
+      const data = await getMyPatients();
+      setPatients(data);
+    } catch (error) {
+      toast({
+        title: "Couldn't load patients",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPatients(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     loadAppointments();
-  }, [loadAppointments]);
+    loadPatients();
+  }, [loadAppointments, loadPatients]);
 
   const handleLogout = async () => {
     await logout();
@@ -153,27 +177,6 @@ const DoctorDashboard = () => {
     const d = new Date(a.date);
     return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && a.status !== 'cancelled';
   });
-
-  // Distinct patients this doctor has seen, most recent visit first.
-  const recentPatients = useMemo(() => {
-    const map = new Map<string, { name: string; specialization?: string; lastVisit: string; patientId: string; familyMemberId?: string }>();
-    appointments
-      .slice()
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .forEach((a) => {
-        const key = `${a.patient._id}:${a.familyMember?._id || 'self'}`;
-        if (!map.has(key)) {
-          map.set(key, {
-            name: a.familyMember ? a.familyMember.name : `${a.patient.firstName} ${a.patient.lastName}`,
-            specialization: a.appointmentType,
-            lastVisit: a.date,
-            patientId: a.patient._id,
-            familyMemberId: a.familyMember?._id,
-          });
-        }
-      });
-    return Array.from(map.values()).slice(0, 10);
-  }, [appointments]);
 
   // Real 6-month consultation trend computed from actual appointments (not fabricated).
   const monthlyTrend = useMemo(() => {
@@ -500,33 +503,57 @@ const DoctorDashboard = () => {
             </TabsContent>
 
             <TabsContent value="patients" className="mt-0">
-              {recentPatients.length === 0 ? (
+              {isLoadingPatients ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : patients.length === 0 ? (
                 <Card>
                   <CardContent className="text-center py-12 text-muted-foreground">
-                    You haven't seen any patients yet.
+                    You haven't seen any patients yet. Once you confirm an appointment, they'll show up here.
                   </CardContent>
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {recentPatients.map((patient) => (
-                    <Card key={`${patient.patientId}:${patient.familyMemberId || 'self'}`}>
-                      <CardContent className="p-5">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h3 className="font-medium">{patient.name}</h3>
-                            <p className="text-sm text-muted-foreground">Last visit: {new Date(patient.lastVisit).toLocaleDateString()}</p>
+                  {patients.map((p) => {
+                    const displayName = p.familyMember ? p.familyMember.name : `${p.patient.firstName} ${p.patient.lastName}`;
+                    return (
+                      <Card key={`${p.patient._id}:${p.familyMember?._id || 'self'}`}>
+                        <CardContent className="p-5">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className="w-10 h-10 shrink-0">
+                                <AvatarImage src={p.familyMember?.avatar || p.patient.avatar} />
+                                <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="font-medium truncate">{displayName}</h3>
+                                  {p.familyMember && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {p.familyMember.relationship} of {p.patient.firstName} {p.patient.lastName}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {p.appointmentCount} visit{p.appointmentCount === 1 ? '' : 's'} • Last:{' '}
+                                  {new Date(p.lastAppointmentDate).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <Link
+                              to={`/medical-records?patientId=${p.patient._id}${p.familyMember ? `&familyMemberId=${p.familyMember._id}` : ''}`}
+                              className="shrink-0"
+                            >
+                              <Button variant="outline" size="sm">
+                                View Records
+                              </Button>
+                            </Link>
                           </div>
-                          <Link
-                            to={`/medical-records?patientId=${patient.patientId}${patient.familyMemberId ? `&familyMemberId=${patient.familyMemberId}` : ''}`}
-                          >
-                            <Button variant="outline" size="sm">
-                              View Records
-                            </Button>
-                          </Link>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>

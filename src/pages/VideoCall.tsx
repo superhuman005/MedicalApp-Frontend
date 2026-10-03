@@ -18,6 +18,7 @@ import { getAppointmentById, updateAppointmentStatus } from "@/services/appointm
 import { createPrescription, createConsultation } from "@/services/medicalRecords";
 import { createDoctorReport } from "@/services/doctorReports";
 import ChatConsultation from "@/components/ChatConsultation";
+import RateDoctorDialog from "@/components/RateDoctorDialog";
 import type { Appointment } from "@/types";
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -52,6 +53,10 @@ const VideoCall = () => {
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
   const [recommendation, setRecommendation] = useState("");
   const [reportUrgency, setReportUrgency] = useState<"low" | "medium" | "high">("low");
+  // Patient's own (simpler) end-consultation flow: confirm -> mark completed
+  // -> prompt to rate the doctor while any prescription awaits admin review.
+  const [isPatientEndDialogOpen, setIsPatientEndDialogOpen] = useState(false);
+  const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -217,19 +222,32 @@ const VideoCall = () => {
 
   // Patients (and the plain "leave" case) just hang up immediately - only the
   // doctor's end-of-consultation path finalizes the appointment record.
-  const handleLeaveCall = async () => {
-    setIsEnding(true);
-    const socket = getSocket();
-    socket?.emit("video:end-call", { roomId: appointmentId });
-    cleanupCall();
-    navigate(isDoctor ? "/doctor-dashboard" : "/patient-dashboard");
-  };
-
   const handleEndCallClick = () => {
     if (isDoctor) {
       setIsEndDialogOpen(true);
     } else {
-      handleLeaveCall();
+      setIsPatientEndDialogOpen(true);
+    }
+  };
+
+  // Patient ends the consultation: this actually completes the appointment
+  // (unlike just navigating away), then offers a chance to rate the doctor.
+  const handleConfirmPatientEnd = async () => {
+    if (!appointment) return;
+    setIsEnding(true);
+
+    const socket = getSocket();
+    socket?.emit("video:end-call", { roomId: appointmentId });
+    cleanupCall();
+
+    try {
+      await updateAppointmentStatus(appointment._id, "completed");
+    } catch (error) {
+      toast({ title: "Couldn't end consultation", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsEnding(false);
+      setIsPatientEndDialogOpen(false);
+      setIsRateDialogOpen(true);
     }
   };
 
@@ -343,6 +361,8 @@ const VideoCall = () => {
         otherPartyAvatar={otherPartyAvatar}
         backTo={isDoctor ? "/doctor-dashboard" : "/patient-dashboard"}
         appointmentId={appointment._id}
+        doctorId={appointment.doctor._id}
+        doctorName={`${appointment.doctor.firstName} ${appointment.doctor.lastName}`}
       />
     );
   }
@@ -603,6 +623,42 @@ const VideoCall = () => {
           </Button>
         </div>
       </div>
+
+      {/* Patient's own end-consultation confirmation - lighter than the
+          doctor's (no notes/recommendation required), but still actually
+          completes the appointment rather than just leaving the call. */}
+      {!isDoctor && (
+        <Dialog open={isPatientEndDialogOpen} onOpenChange={(open) => !isEnding && setIsPatientEndDialogOpen(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>End this consultation?</DialogTitle>
+              <DialogDescription>
+                This will end your call with {otherPartyName} and mark the consultation as completed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button variant="outline" onClick={() => setIsPatientEndDialogOpen(false)} disabled={isEnding}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmPatientEnd} disabled={isEnding}>
+                {isEnding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                End Consultation
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {!isDoctor && appointment && (
+        <RateDoctorDialog
+          open={isRateDialogOpen}
+          onOpenChange={setIsRateDialogOpen}
+          doctorId={appointment.doctor._id}
+          doctorName={`${appointment.doctor.firstName} ${appointment.doctor.lastName}`}
+          appointmentId={appointment._id}
+          onDone={() => navigate("/patient-dashboard")}
+        />
+      )}
     </div>
   );
 };

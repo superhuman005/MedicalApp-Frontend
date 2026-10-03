@@ -308,6 +308,29 @@ export interface DoctorReportItem {
   createdAt: string;
 }
 
+export interface Review {
+  _id: string;
+  doctor: { _id: string; firstName: string; lastName: string; specialization?: string; avatar?: string };
+  patient: { _id: string; firstName: string; lastName: string; avatar?: string };
+  appointment?: string;
+  rating: number; // 1-5
+  comment?: string;
+  createdAt: string;
+}
+
+// A patient (or a patient's family member) this doctor has actually had a
+// qualifying appointment with - see GET /api/doctors/me/patients.
+export interface DoctorPatient {
+  patient: { _id: string; firstName: string; lastName: string; avatar?: string; email: string; phone?: string };
+  familyMember?: { _id: string; name: string; relationship: string; avatar?: string };
+  lastAppointmentDate: string;
+  lastAppointmentTime: string;
+  lastAppointmentType: "video" | "chat";
+  lastAppointmentStatus: AppointmentStatus;
+  appointmentCount: number;
+  completedCount: number;
+}
+
 export interface AdminOverview {
   totalPatients: number;
   totalDoctors: number;
