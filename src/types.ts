@@ -29,7 +29,7 @@ export interface User {
   doctorApprovalStatus?: DoctorApprovalStatus;
   approvalNote?: string;
 
-  // patient-only
+  // demographic - either role
   dateOfBirth?: string;
   gender?: "male" | "female" | "other" | "";
 

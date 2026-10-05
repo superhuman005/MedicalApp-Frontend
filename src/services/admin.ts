@@ -85,6 +85,8 @@ export interface CreateDoctorInput {
   medicalLicenseNumber: string;
   yearsOfExperience: number;
   bio?: string;
+  gender?: "male" | "female" | "other" | "";
+  dateOfBirth?: string;
 }
 
 // The only way to create a doctor account now - there is no public doctor

@@ -120,6 +120,8 @@ const DoctorDashboard = () => {
     specialization?: string;
     yearsOfExperience?: number;
     avatar?: string;
+    gender?: "male" | "female" | "other" | "";
+    dateOfBirth?: string;
   }) => {
     try {
       const updated = await updateMyDoctorProfile(updates);

@@ -35,6 +35,8 @@ export interface RegisterDoctorInput {
   medicalLicenseNumber: string;
   yearsOfExperience: number;
   bio?: string;
+  gender?: "male" | "female" | "other" | "";
+  dateOfBirth?: string;
 }
 
 export const registerDoctorRequest = async (input: RegisterDoctorInput): Promise<AuthResponse> => {

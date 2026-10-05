@@ -29,6 +29,8 @@ export interface UpdateDoctorProfileInput {
   specialization?: string;
   yearsOfExperience?: number;
   avatar?: string;
+  gender?: "male" | "female" | "other" | "";
+  dateOfBirth?: string;
 }
 
 export const updateMyDoctorProfile = async (input: UpdateDoctorProfileInput): Promise<User> => {

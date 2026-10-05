@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -115,6 +116,7 @@ const AdminDashboard = () => {
   const emptyDoctorForm = {
     firstName: "", lastName: "", email: "", phone: "",
     specialization: "", medicalLicenseNumber: "", yearsOfExperience: "", password: "",
+    gender: "", dateOfBirth: "",
   };
   const [isDoctorDialogOpen, setIsDoctorDialogOpen] = useState(false);
   const [doctorForm, setDoctorForm] = useState(emptyDoctorForm);
@@ -281,6 +283,8 @@ const AdminDashboard = () => {
         specialization: doctorForm.specialization.trim(),
         medicalLicenseNumber: doctorForm.medicalLicenseNumber.trim(),
         yearsOfExperience: Number(doctorForm.yearsOfExperience),
+        gender: (doctorForm.gender as "male" | "female" | "other" | "") || undefined,
+        dateOfBirth: doctorForm.dateOfBirth || undefined,
       });
       toast({
         title: "Doctor added",
@@ -1169,6 +1173,34 @@ const AdminDashboard = () => {
                     value={doctorForm.yearsOfExperience}
                     onChange={(e) => setDoctorForm({ ...doctorForm, yearsOfExperience: e.target.value })}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="doctor-gender">Sex</Label>
+                    <Select
+                      value={doctorForm.gender}
+                      onValueChange={(value) => setDoctorForm({ ...doctorForm, gender: value })}
+                    >
+                      <SelectTrigger id="doctor-gender" className="mt-1">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="doctor-dob">Date of birth</Label>
+                    <Input
+                      id="doctor-dob"
+                      type="date"
+                      className="mt-1"
+                      value={doctorForm.dateOfBirth}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, dateOfBirth: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="doctor-new-password">Password (optional)</Label>

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  ArrowLeft, Star, Loader2, Mail, Phone, BadgeCheck, Briefcase, Video, Calendar,
+  ArrowLeft, Star, Loader2, Mail, Phone, BadgeCheck, Briefcase, Video, Calendar, UserRound,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -73,6 +73,8 @@ const DoctorProfilePage = () => {
     specialization?: string;
     yearsOfExperience?: number;
     avatar?: string;
+    gender?: "male" | "female" | "other" | "";
+    dateOfBirth?: string;
   }) => {
     try {
       const updated = await updateMyDoctorProfile(updates);
@@ -174,6 +176,12 @@ const DoctorProfilePage = () => {
                       <span className="flex items-center gap-1">
                         <BadgeCheck className="w-4 h-4" />
                         License: {doctor.medicalLicenseNumber}
+                      </span>
+                    )}
+                    {doctor.gender && (
+                      <span className="flex items-center gap-1">
+                        <UserRound className="w-4 h-4" />
+                        {doctor.gender[0].toUpperCase()}{doctor.gender.slice(1)}
                       </span>
                     )}
                   </div>

@@ -21,6 +21,8 @@ interface DoctorProfileProps {
     specialization?: string;
     yearsOfExperience?: number;
     avatar?: string;
+    gender?: "male" | "female" | "other" | "";
+    dateOfBirth?: string;
   }) => Promise<void>;
   onStatusChange: (status: DoctorStatus) => Promise<void>;
 }
@@ -33,6 +35,8 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
     yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
     bio: doctor.bio || "",
     avatar: doctor.avatar || "",
+    gender: doctor.gender || "",
+    dateOfBirth: doctor.dateOfBirth ? doctor.dateOfBirth.slice(0, 10) : "",
   });
 
   useEffect(() => {
@@ -41,8 +45,10 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
       yearsOfExperience: doctor.yearsOfExperience?.toString() || "",
       bio: doctor.bio || "",
       avatar: doctor.avatar || "",
+      gender: doctor.gender || "",
+      dateOfBirth: doctor.dateOfBirth ? doctor.dateOfBirth.slice(0, 10) : "",
     });
-  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar]);
+  }, [doctor.specialization, doctor.yearsOfExperience, doctor.bio, doctor.avatar, doctor.gender, doctor.dateOfBirth]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -52,6 +58,8 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
         yearsOfExperience: formData.yearsOfExperience ? Number(formData.yearsOfExperience) : undefined,
         bio: formData.bio,
         avatar: formData.avatar,
+        gender: (formData.gender as "male" | "female" | "other" | "") || undefined,
+        dateOfBirth: formData.dateOfBirth || undefined,
       });
       setIsOpen(false);
     } finally {
@@ -112,6 +120,7 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
         </div>
         <p className="text-muted-foreground mb-2">
           {doctor.specialization || 'Specialty not set'} • {experienceLabel}
+          {doctor.gender && ` • ${doctor.gender[0].toUpperCase()}${doctor.gender.slice(1)}`}
         </p>
         
         <div className="flex items-center space-x-2">
@@ -166,6 +175,36 @@ const DoctorProfile = ({ doctor, onProfileUpdate, onStatusChange }: DoctorProfil
                     min={0}
                     value={formData.yearsOfExperience}
                     onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="gender" className="text-right">
+                    Sex
+                  </Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                  >
+                    <SelectTrigger id="gender" className="col-span-3">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="dateOfBirth" className="text-right">
+                    Date of Birth
+                  </Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                     className="col-span-3"
                   />
                 </div>
