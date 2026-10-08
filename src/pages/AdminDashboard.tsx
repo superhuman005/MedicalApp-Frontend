@@ -108,6 +108,11 @@ const AdminDashboard = () => {
   const [rejectingRx, setRejectingRx] = useState<AdminPrescription | null>(null);
   const [rejectNote, setRejectNote] = useState("");
 
+  // View application/account details dialog - full record (doctor or
+  // patient) so admin can review everything submitted at signup, including
+  // a doctor's bio, before approving/rejecting them.
+  const [viewingApplicant, setViewingApplicant] = useState<User | null>(null);
+
   // Add-admin dialog
   const emptyAdminForm = { firstName: "", lastName: "", email: "", phone: "", password: "" };
   const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
@@ -540,32 +545,41 @@ const AdminDashboard = () => {
                               <p className="text-xs text-gray-500">License: {doctor.medicalLicenseNumber} • {doctor.yearsOfExperience} yrs experience</p>
                             </div>
                           </div>
-                          {isSuperAdmin ? (
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 border-red-200 hover:bg-red-50"
-                                onClick={() => handleReject(doctor._id)}
-                                disabled={actingOnId === doctor._id}
-                              >
-                                <XCircle className="w-4 h-4 mr-1" />Reject
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleApprove(doctor._id)}
-                                disabled={actingOnId === doctor._id}
-                              >
-                                {actingOnId === doctor._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
-                                Approve
-                              </Button>
-                            </div>
-                          ) : (
-                            <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                              Awaiting super admin
-                            </Badge>
-                          )}
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setViewingApplicant(doctor)}
+                            >
+                              View Application
+                            </Button>
+                            {isSuperAdmin ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                  onClick={() => handleReject(doctor._id)}
+                                  disabled={actingOnId === doctor._id}
+                                >
+                                  <XCircle className="w-4 h-4 mr-1" />Reject
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  onClick={() => handleApprove(doctor._id)}
+                                  disabled={actingOnId === doctor._id}
+                                >
+                                  {actingOnId === doctor._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                                  Approve
+                                </Button>
+                              </>
+                            ) : (
+                              <Badge variant="outline" className="text-yellow-600 border-yellow-600 self-center">
+                                Awaiting super admin
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -588,18 +602,23 @@ const AdminDashboard = () => {
                             <p className="font-medium text-sm">Dr. {doctor.firstName} {doctor.lastName}</p>
                             <p className="text-xs text-gray-500">{doctor.specialization}</p>
                           </div>
-                          <Badge
-                            variant="outline"
-                            className={
-                              doctor.doctorApprovalStatus === "approved"
-                                ? "text-green-600 border-green-600"
-                                : doctor.doctorApprovalStatus === "rejected"
-                                ? "text-red-600 border-red-600"
-                                : "text-yellow-600 border-yellow-600"
-                            }
-                          >
-                            {doctor.doctorApprovalStatus}
-                          </Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                doctor.doctorApprovalStatus === "approved"
+                                  ? "text-green-600 border-green-600"
+                                  : doctor.doctorApprovalStatus === "rejected"
+                                  ? "text-red-600 border-red-600"
+                                  : "text-yellow-600 border-yellow-600"
+                              }
+                            >
+                              {doctor.doctorApprovalStatus}
+                            </Badge>
+                            <Button variant="outline" size="sm" onClick={() => setViewingApplicant(doctor)}>
+                              View Application
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -811,8 +830,9 @@ const AdminDashboard = () => {
               <CardHeader>
                 <CardTitle>All Users</CardTitle>
                 <CardDescription>
-                  Full account details for every patient and doctor on the platform, including sex, date of
-                  birth, and - for doctors - license and specialization.
+                  Full account and application details for every patient and doctor on the platform - click
+                  "View Application" on anyone to see their sex, date of birth, and, for doctors, their bio,
+                  license, specialization and experience.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -930,15 +950,18 @@ const AdminDashboard = () => {
                             )}
                           </div>
 
-                          {u.role === "doctor" && (
-                            <div className="mt-3">
+                          <div className="mt-3 flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setViewingApplicant(u)}>
+                              View Application
+                            </Button>
+                            {u.role === "doctor" && (
                               <Link to={`/doctors/${u._id}`}>
                                 <Button variant="outline" size="sm">
                                   View Full Profile
                                 </Button>
                               </Link>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -1383,6 +1406,171 @@ const AdminDashboard = () => {
                   {isCreatingDoctor && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Add Doctor
                 </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View application / account details - full record for a patient or
+          doctor, including a doctor's self-written bio, so admin can review
+          everything submitted before approving an account or just looking
+          someone up. */}
+      <Dialog open={!!viewingApplicant} onOpenChange={(open) => !open && setViewingApplicant(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          {viewingApplicant && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-3">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={viewingApplicant.avatar} />
+                    <AvatarFallback>
+                      {viewingApplicant.firstName?.[0] || ""}
+                      {viewingApplicant.lastName?.[0] || ""}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>
+                    {viewingApplicant.role === "doctor" ? "Dr. " : ""}
+                    {viewingApplicant.firstName} {viewingApplicant.lastName}
+                  </span>
+                </DialogTitle>
+                <DialogDescription>
+                  {viewingApplicant.role === "doctor" ? "Doctor application & account details" : "Patient account details"}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="capitalize">{viewingApplicant.role}</Badge>
+                  {viewingApplicant.role === "doctor" && viewingApplicant.doctorApprovalStatus && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        viewingApplicant.doctorApprovalStatus === "approved"
+                          ? "text-green-600 border-green-600"
+                          : viewingApplicant.doctorApprovalStatus === "rejected"
+                          ? "text-red-600 border-red-600"
+                          : "text-yellow-600 border-yellow-600"
+                      }
+                    >
+                      {viewingApplicant.doctorApprovalStatus}
+                    </Badge>
+                  )}
+                  {!viewingApplicant.isActive && (
+                    <Badge variant="outline" className="text-red-600 border-red-600">Inactive</Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-gray-50 p-3 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="font-medium break-all">{viewingApplicant.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Phone</p>
+                    <p className="font-medium">{viewingApplicant.phone || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Gender</p>
+                    <p className="font-medium capitalize">{viewingApplicant.gender || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Date of birth</p>
+                    <p className="font-medium">
+                      {viewingApplicant.dateOfBirth
+                        ? `${new Date(viewingApplicant.dateOfBirth).toLocaleDateString()}${
+                            calculateAge(viewingApplicant.dateOfBirth) !== null
+                              ? ` (${calculateAge(viewingApplicant.dateOfBirth)} yrs)`
+                              : ""
+                          }`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Joined</p>
+                    <p className="font-medium">
+                      {viewingApplicant.createdAt ? new Date(viewingApplicant.createdAt).toLocaleDateString() : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Account status</p>
+                    <p className="font-medium">{viewingApplicant.isActive ? "Active" : "Inactive"}</p>
+                  </div>
+                </div>
+
+                {viewingApplicant.role === "doctor" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-gray-50 p-3 rounded-lg">
+                    <div>
+                      <p className="text-xs text-gray-500">Specialization</p>
+                      <p className="font-medium">{viewingApplicant.specialization || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Medical license number</p>
+                      <p className="font-medium">{viewingApplicant.medicalLicenseNumber || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Years of experience</p>
+                      <p className="font-medium">
+                        {viewingApplicant.yearsOfExperience !== undefined ? viewingApplicant.yearsOfExperience : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Rating</p>
+                      <p className="font-medium">
+                        {viewingApplicant.rating ? `${viewingApplicant.rating.toFixed(1)} / 5` : "No ratings yet"}
+                        {viewingApplicant.ratingCount ? ` (${viewingApplicant.ratingCount})` : ""}
+                      </p>
+                    </div>
+                    {viewingApplicant.bio && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-gray-500">Bio</p>
+                        <p className="whitespace-pre-wrap">{viewingApplicant.bio}</p>
+                      </div>
+                    )}
+                    {viewingApplicant.approvalNote && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-gray-500">Admin note</p>
+                        <p>{viewingApplicant.approvalNote}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {viewingApplicant.role === "doctor" && viewingApplicant.doctorApprovalStatus === "pending" && (
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      disabled={!isSuperAdmin || actingOnId === viewingApplicant._id}
+                      onClick={() => {
+                        handleReject(viewingApplicant._id);
+                        setViewingApplicant(null);
+                      }}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={!isSuperAdmin || actingOnId === viewingApplicant._id}
+                      onClick={() => {
+                        handleApprove(viewingApplicant._id);
+                        setViewingApplicant(null);
+                      }}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" />Approve
+                    </Button>
+                  </div>
+                )}
+
+                {viewingApplicant.role === "doctor" && (
+                  <div className="flex justify-end">
+                    <Link to={`/doctors/${viewingApplicant._id}`}>
+                      <Button variant="outline" size="sm">View Public Profile</Button>
+                    </Link>
+                  </div>
+                )}
               </div>
             </>
           )}
