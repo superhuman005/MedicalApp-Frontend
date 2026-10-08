@@ -28,6 +28,13 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				brand: 'hsl(var(--brand))',
+				brandink: 'hsl(var(--brandink))',
+				brandsoft: 'hsl(var(--brandsoft))',
+				accentsoft: 'hsl(var(--accentsoft))',
+				warn: 'hsl(var(--warn))',
+				warnsoft: 'hsl(var(--warnsoft))',
+				dangersoft: 'hsl(var(--dangersoft))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'

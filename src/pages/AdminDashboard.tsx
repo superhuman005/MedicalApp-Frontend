@@ -8,22 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DashboardShell, type ShellNavItem } from "@/components/DashboardShell";
 import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import {
-  Video, Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
+  Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
   CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield, Tag, Send,
   Search, Mail, Phone, UserRound, BadgeCheck, Briefcase, Cake,
 } from "lucide-react";
@@ -61,16 +48,9 @@ const nairaFormatter = new Intl.NumberFormat("en-NG", {
 
 type SectionKey = "doctors" | "reports" | "prescriptions" | "appointments" | "users" | "admins" | "plans" | "payments";
 
-const NAV_ITEMS: { key: SectionKey; label: string; icon: typeof Stethoscope }[] = [
-  { key: "doctors", label: "Doctors", icon: Stethoscope },
-  { key: "reports", label: "Recommendations", icon: AlertTriangle },
-  { key: "prescriptions", label: "Prescriptions", icon: Pill },
-  { key: "appointments", label: "Appointments", icon: Calendar },
-  { key: "users", label: "Users", icon: Users },
-  { key: "admins", label: "Admins", icon: Shield },
-  { key: "plans", label: "Plans", icon: Tag },
-  { key: "payments", label: "Payments", icon: DollarSign },
-];
+// Admin console emphasis color - sky blue, distinct from the patient app's
+// teal and the doctor workspace's indigo.
+const ACCENT = "#0ea5e9";
 
 const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   doctors: { title: "Doctors", subtitle: "Approvals and doctor accounts" },
@@ -320,6 +300,17 @@ const AdminDashboard = () => {
 
   const pendingPrescriptionCount = prescriptions.filter((p) => p.adminStatus === "pending").length;
 
+  const NAV_ITEMS: ShellNavItem[] = [
+    { id: "doctors", label: "Doctors", icon: Stethoscope, badge: pendingDoctors.length || undefined },
+    { id: "reports", label: "Recommendations", icon: AlertTriangle, badge: overview?.openReports || undefined },
+    { id: "prescriptions", label: "Prescriptions", icon: Pill, badge: pendingPrescriptionCount || undefined },
+    { id: "appointments", label: "Appointments", icon: Calendar },
+    { id: "users", label: "Users", icon: Users },
+    { id: "admins", label: "Admins", icon: Shield },
+    { id: "plans", label: "Plans", icon: Tag },
+    { id: "payments", label: "Payments", icon: DollarSign },
+  ];
+
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
     return users.filter((u) => {
@@ -356,114 +347,35 @@ const AdminDashboard = () => {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon" className="border-sidebar-border">
-        <SidebarHeader className="px-3 py-4">
-          <Link to="/" className="flex items-center gap-2 px-1">
-            <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
-              <Video className="w-[18px] h-[18px] text-sidebar-primary-foreground" />
-            </div>
-            <span className="font-display font-semibold text-sidebar-foreground text-lg tracking-tight group-data-[collapsible=icon]:hidden">
-              TeleMed Admin
-            </span>
-          </Link>
-        </SidebarHeader>
+    <>
+    <DashboardShell
+      nav={NAV_ITEMS}
+      active={activeTab}
+      onNav={(id) => setActiveTab(id as SectionKey)}
+      brand="TeleMed"
+      tag="Admin console"
+      accent={ACCENT}
+      user={{ name: `${user.firstName} ${user.lastName}`, role: isSuperAdmin ? "Super Admin" : "Admin" }}
+      title={SECTION_COPY[activeTab].title}
+      subtitle={SECTION_COPY[activeTab].subtitle}
+      mobileIds={["doctors", "prescriptions", "users", "payments"]}
+      actions={
+        <>
+          <NotificationBell />
+          <Button variant="ghost" size="icon" aria-label="Log out" onClick={handleLogout}>
+            <LogOut className="w-[18px] h-[18px]" />
+          </Button>
+        </>
+      }
+    >
 
-        <SidebarContent className="px-2">
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {NAV_ITEMS.map((item) => (
-                  <SidebarMenuItem key={item.key}>
-                    <SidebarMenuButton
-                      isActive={activeTab === item.key}
-                      onClick={() => setActiveTab(item.key)}
-                      tooltip={item.label}
-                      className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium relative data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary"
-                    >
-                      <item.icon className="shrink-0" />
-                      <span>{item.label}</span>
-                      {item.key === "doctors" && pendingDoctors.length > 0 && (
-                        <Badge className="ml-auto bg-yellow-500 hover:bg-yellow-500 group-data-[collapsible=icon]:hidden">
-                          {pendingDoctors.length}
-                        </Badge>
-                      )}
-                      {item.key === "reports" && overview && overview.openReports > 0 && (
-                        <Badge className="ml-auto bg-red-500 hover:bg-red-500 group-data-[collapsible=icon]:hidden">
-                          {overview.openReports}
-                        </Badge>
-                      )}
-                      {item.key === "prescriptions" && pendingPrescriptionCount > 0 && (
-                        <Badge className="ml-auto bg-red-500 hover:bg-red-500 group-data-[collapsible=icon]:hidden">
-                          {pendingPrescriptionCount}
-                        </Badge>
-                      )}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter className="px-2 pb-3">
-          <div className="rounded-lg bg-sidebar-accent/60 p-3 mb-2 group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center gap-2.5">
-              <Avatar className="w-9 h-9 shrink-0">
-                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {isSuperAdmin ? "Super Admin" : "Admin"}
-                </p>
-              </div>
-            </div>
-          </div>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
-                <LogOut className="shrink-0" />
-                <span>Logout</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
-
-      <SidebarInset>
-        {/* Top bar */}
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b bg-card/80 backdrop-blur px-4 sm:px-6 h-16">
-          <div className="flex items-center gap-3 min-w-0">
-            <SidebarTrigger className="md:hidden" />
-            <div className="min-w-0">
-              <h1 className="font-display font-semibold text-lg sm:text-xl text-foreground truncate">
-                {SECTION_COPY[activeTab].title}
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">
-                {SECTION_COPY[activeTab].subtitle}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <NotificationBell />
-            <Avatar className="w-8 h-8 md:hidden shrink-0">
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-          </div>
-        </header>
-
-        <div className="flex-1 px-4 sm:px-6 py-6 space-y-6">
+        <div className="space-y-6 anim-rise">
           {/* Stats - persistent context above every section */}
           {overview && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -699,7 +611,7 @@ const AdminDashboard = () => {
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-start space-x-3">
-                                <Pill className="w-5 h-5 text-blue-600 mt-1" />
+                                <Pill className="w-5 h-5 text-primary mt-1" />
                                 <div>
                                   <p className="font-semibold text-lg">{rx.medication}</p>
                                   {rx.dosage && <p className="text-sm text-gray-600">{rx.dosage}</p>}
@@ -1054,7 +966,7 @@ const AdminDashboard = () => {
             </Card>
           )}
         </div>
-      </SidebarInset>
+    </DashboardShell>
 
       {/* Reject prescription */}
       <Dialog open={!!rejectingRx} onOpenChange={(open) => !open && setRejectingRx(null)}>
@@ -1576,7 +1488,7 @@ const AdminDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
-    </SidebarProvider>
+    </>
   );
 };
 

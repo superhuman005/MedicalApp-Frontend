@@ -3,89 +3,110 @@
 @tailwind utilities;
 
 /* TeleMed design tokens.
-   Palette: a deep, confident teal (trust, clinical calm) against a warm
-   paper canvas (approachable, human), with a single warm gold accent spent
-   deliberately on active states, highlights, and premium/plan emphasis. */
+   A clinical-calm palette: cool cyan-tinted canvas, crisp white surfaces,
+   a confident teal "brand" for primary actions (shared app-wide), an
+   indigo "accent" for secondary emphasis and links, and dedicated
+   warn/danger tones for status. Each dashboard (patient/doctor/admin)
+   additionally picks its own emphasis hex for nav highlights, passed as a
+   prop to DashboardShell rather than stored globally - see that component. */
 
 @layer base {
   :root {
-    --background: 40 23% 97%;
-    --foreground: 170 24% 12%;
+    --background: 189 26% 95%;
+    --foreground: 193 55% 10%;
 
-    --card: 40 30% 99%;
-    --card-foreground: 170 24% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 193 55% 10%;
 
-    --popover: 40 30% 99%;
-    --popover-foreground: 170 24% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 193 55% 10%;
 
-    --primary: 168 64% 22%;
-    --primary-foreground: 40 30% 97%;
+    --primary: 175 84% 32%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 150 22% 93%;
-    --secondary-foreground: 168 50% 16%;
+    --secondary: 192 33% 97%;
+    --secondary-foreground: 193 55% 10%;
 
-    --muted: 40 14% 92%;
-    --muted-foreground: 170 9% 40%;
+    --muted: 192 33% 97%;
+    --muted-foreground: 192 15% 44%;
 
-    --accent: 38 82% 54%;
-    --accent-foreground: 170 40% 12%;
+    --accent: 240 60% 60%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 358 66% 47%;
-    --destructive-foreground: 40 30% 97%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 40 16% 87%;
-    --input: 40 16% 87%;
-    --ring: 168 64% 22%;
+    --border: 190 21% 89%;
+    --input: 190 21% 89%;
+    --ring: 175 84% 32%;
 
-    --radius: 0.625rem;
+    /* Extra tokens the shadcn palette doesn't have, used for soft status
+       pills and badges (bg-brandsoft text-brandink, bg-warnsoft text-warn). */
+    --brand: 175 84% 32%;
+    --brandink: 175 83% 26%;
+    --brandsoft: 172 52% 92%;
+    --accentsoft: 240 69% 95%;
+    --warn: 34 90% 40%;
+    --warnsoft: 39 89% 93%;
+    --dangersoft: 0 84% 95%;
 
-    --sidebar-background: 172 46% 10%;
-    --sidebar-foreground: 40 20% 90%;
-    --sidebar-primary: 38 82% 54%;
-    --sidebar-primary-foreground: 172 46% 10%;
-    --sidebar-accent: 172 32% 17%;
-    --sidebar-accent-foreground: 40 20% 94%;
-    --sidebar-border: 172 30% 18%;
-    --sidebar-ring: 38 82% 54%;
+    --radius: 1rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 193 55% 10%;
+    --sidebar-primary: 175 84% 32%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 33% 97%;
+    --sidebar-accent-foreground: 193 55% 10%;
+    --sidebar-border: 190 21% 89%;
+    --sidebar-ring: 175 84% 32%;
   }
 
   .dark {
-    --background: 172 30% 7%;
-    --foreground: 40 20% 92%;
+    --background: 210 44% 4%;
+    --foreground: 189 35% 93%;
 
-    --card: 172 28% 9%;
-    --card-foreground: 40 20% 92%;
+    --card: 204 37% 8%;
+    --card-foreground: 189 35% 93%;
 
-    --popover: 172 28% 9%;
-    --popover-foreground: 40 20% 92%;
+    --popover: 204 37% 8%;
+    --popover-foreground: 189 35% 93%;
 
-    --primary: 158 55% 52%;
+    --primary: 172 66% 50%;
     --primary-foreground: 172 46% 8%;
 
-    --secondary: 172 20% 16%;
-    --secondary-foreground: 40 20% 92%;
+    --secondary: 202 35% 11%;
+    --secondary-foreground: 189 35% 93%;
 
-    --muted: 172 20% 15%;
-    --muted-foreground: 170 10% 65%;
+    --muted: 202 35% 11%;
+    --muted-foreground: 194 17% 60%;
 
-    --accent: 38 82% 58%;
-    --accent-foreground: 172 46% 10%;
+    --accent: 240 84% 75%;
+    --accent-foreground: 236 36% 12%;
 
-    --destructive: 358 62% 45%;
-    --destructive-foreground: 40 20% 92%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 356 34% 10%;
 
-    --border: 172 20% 18%;
-    --input: 172 20% 18%;
-    --ring: 158 55% 52%;
+    --border: 202 30% 16%;
+    --input: 202 30% 16%;
+    --ring: 172 66% 50%;
 
-    --sidebar-background: 172 46% 6%;
-    --sidebar-foreground: 40 20% 88%;
-    --sidebar-primary: 38 82% 54%;
+    --brand: 172 66% 50%;
+    --brandink: 171 77% 64%;
+    --brandsoft: 178 51% 12%;
+    --accentsoft: 236 36% 17%;
+    --warn: 42 87% 55%;
+    --warnsoft: 37 50% 13%;
+    --dangersoft: 356 34% 15%;
+
+    --sidebar-background: 204 37% 8%;
+    --sidebar-foreground: 189 35% 93%;
+    --sidebar-primary: 172 66% 50%;
     --sidebar-primary-foreground: 172 46% 8%;
-    --sidebar-accent: 172 32% 13%;
-    --sidebar-accent-foreground: 40 20% 92%;
-    --sidebar-border: 172 30% 14%;
-    --sidebar-ring: 38 82% 54%;
+    --sidebar-accent: 202 35% 11%;
+    --sidebar-accent-foreground: 189 35% 93%;
+    --sidebar-border: 202 30% 16%;
+    --sidebar-ring: 172 66% 50%;
   }
 }
 
@@ -101,4 +122,53 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
   }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 99px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.anim-rise {
+  animation: floatUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-pop {
+  animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.grain {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.07) 1px, transparent 0);
+  background-size: 22px 22px;
 }
