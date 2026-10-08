@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +25,7 @@ import {
 import {
   Video, Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
   CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield, Tag, Send,
+  Search, Mail, Phone, UserRound, BadgeCheck, Briefcase, Cake,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "@/components/NotificationBell";
@@ -50,7 +51,7 @@ import {
   createAdmin,
 } from "@/services/admin";
 import { getSocket } from "@/services/socket";
-import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription } from "@/types";
+import type { AdminOverview, User, UserRole, Appointment, DoctorReportItem, Payment, AdminPrescription } from "@/types";
 
 const nairaFormatter = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -95,6 +96,8 @@ const AdminDashboard = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [reports, setReports] = useState<DoctorReportItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<"all" | UserRole>("all");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [prescriptions, setPrescriptions] = useState<AdminPrescription[]>([]);
   const [admins, setAdmins] = useState<User[]>([]);
@@ -311,6 +314,29 @@ const AdminDashboard = () => {
   };
 
   const pendingPrescriptionCount = prescriptions.filter((p) => p.adminStatus === "pending").length;
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    return users.filter((u) => {
+      if (userRoleFilter !== "all" && u.role !== userRoleFilter) return false;
+      if (!q) return true;
+      return (
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.phone || "").toLowerCase().includes(q) ||
+        (u.specialization || "").toLowerCase().includes(q) ||
+        (u.medicalLicenseNumber || "").toLowerCase().includes(q)
+      );
+    });
+  }, [users, userSearch, userRoleFilter]);
+
+  const calculateAge = (dob?: string) => {
+    if (!dob) return null;
+    const birth = new Date(dob);
+    if (Number.isNaN(birth.getTime())) return null;
+    const diff = Date.now() - birth.getTime();
+    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+  };
 
   const urgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -784,19 +810,140 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>All Users</CardTitle>
+                <CardDescription>
+                  Full account details for every patient and doctor on the platform, including sex, date of
+                  birth, and - for doctors - license and specialization.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {users.map((u) => (
-                    <div key={u._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
-                      <div>
-                        <p className="font-medium">{u.firstName} {u.lastName}</p>
-                        <p className="text-xs text-gray-500">{u.email}</p>
-                      </div>
-                      <Badge variant="outline" className="capitalize">{u.role}</Badge>
-                    </div>
-                  ))}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, email, phone, specialization or license..."
+                      className="pl-9"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                    />
+                  </div>
+                  <Select value={userRoleFilter} onValueChange={(v) => setUserRoleFilter(v as "all" | UserRole)}>
+                    <SelectTrigger className="sm:w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All roles</SelectItem>
+                      <SelectItem value="patient">Patients</SelectItem>
+                      <SelectItem value="doctor">Doctors</SelectItem>
+                      <SelectItem value="admin">Admins</SelectItem>
+                      <SelectItem value="superadmin">Super Admins</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {filteredUsers.length === 0 ? (
+                  <p className="text-center text-sm text-gray-500 py-8">No users match that search.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredUsers.map((u) => {
+                      const age = calculateAge(u.dateOfBirth);
+                      return (
+                        <div key={u._id} className="p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className="w-10 h-10 shrink-0">
+                                <AvatarImage src={u.avatar} />
+                                <AvatarFallback className="text-xs">
+                                  {u.firstName?.[0] || ""}
+                                  {u.lastName?.[0] || ""}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">
+                                  {u.role === "doctor" ? "Dr. " : ""}
+                                  {u.firstName} {u.lastName}
+                                </p>
+                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                  <Mail className="w-3 h-3" />
+                                  {u.email}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="outline" className="capitalize">{u.role}</Badge>
+                              {u.role === "doctor" && u.doctorApprovalStatus && (
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    u.doctorApprovalStatus === "approved"
+                                      ? "text-green-600 border-green-600"
+                                      : u.doctorApprovalStatus === "rejected"
+                                      ? "text-red-600 border-red-600"
+                                      : "text-yellow-600 border-yellow-600"
+                                  }
+                                >
+                                  {u.doctorApprovalStatus}
+                                </Badge>
+                              )}
+                              {!u.isActive && (
+                                <Badge variant="outline" className="text-red-600 border-red-600">Inactive</Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3 text-xs text-gray-600">
+                            {u.phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3.5 h-3.5" />
+                                {u.phone}
+                              </span>
+                            )}
+                            {u.gender && (
+                              <span className="flex items-center gap-1 capitalize">
+                                <UserRound className="w-3.5 h-3.5" />
+                                {u.gender}
+                              </span>
+                            )}
+                            {u.dateOfBirth && (
+                              <span className="flex items-center gap-1">
+                                <Cake className="w-3.5 h-3.5" />
+                                {new Date(u.dateOfBirth).toLocaleDateString()}
+                                {age !== null && ` (${age} yrs)`}
+                              </span>
+                            )}
+                            {u.role === "doctor" && u.specialization && (
+                              <span className="flex items-center gap-1">
+                                <Stethoscope className="w-3.5 h-3.5" />
+                                {u.specialization}
+                              </span>
+                            )}
+                            {u.role === "doctor" && u.medicalLicenseNumber && (
+                              <span className="flex items-center gap-1">
+                                <BadgeCheck className="w-3.5 h-3.5" />
+                                License: {u.medicalLicenseNumber}
+                              </span>
+                            )}
+                            {u.role === "doctor" && u.yearsOfExperience !== undefined && (
+                              <span className="flex items-center gap-1">
+                                <Briefcase className="w-3.5 h-3.5" />
+                                {u.yearsOfExperience} yr{u.yearsOfExperience === 1 ? "" : "s"} experience
+                              </span>
+                            )}
+                          </div>
+
+                          {u.role === "doctor" && (
+                            <div className="mt-3">
+                              <Link to={`/doctors/${u._id}`}>
+                                <Button variant="outline" size="sm">
+                                  View Full Profile
+                                </Button>
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
