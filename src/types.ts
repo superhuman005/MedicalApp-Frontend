@@ -181,6 +181,24 @@ export interface WearableDevice {
   lastHeartRate?: number;
 }
 
+// A document the patient uploaded themselves (old scan, referral letter,
+// insurance card, discharge summary from elsewhere, etc) - see
+// src/pages/MedicalRecords.tsx. Doctors can only see these once they have a
+// qualifying relationship with the patient (same rule as every other record
+// type), never by browsing the platform at large.
+export interface PatientDocument {
+  _id: string;
+  patient: string;
+  familyMember?: { _id: string; name: string; relationship: string };
+  title: string;
+  notes?: string;
+  date: string;
+  fileUrl: string;
+  fileName: string;
+  fileType?: string;
+  fileSize?: number;
+}
+
 export interface LabResult {
   _id: string;
   patient: string;

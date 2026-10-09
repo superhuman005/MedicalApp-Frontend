@@ -1,5 +1,5 @@
 import API from "./api";
-import type { ConsultationRecord, Prescription, VitalSign, LabResult } from "@/types";
+import type { ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument } from "@/types";
 
 // Both patients and doctors scope requests with either familyMemberId (patient
 // view of a dependent) or patientId (doctor view of any patient), matching the
@@ -119,4 +119,35 @@ export const createLabResult = async (input: CreateLabResultInput): Promise<LabR
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data.labResult;
+};
+
+export const getDocuments = async (params: RecordsScopeParams): Promise<PatientDocument[]> => {
+  const { data } = await API.get("/medical-records/documents", { params });
+  return data.documents;
+};
+
+export interface UploadDocumentInput {
+  title: string;
+  notes?: string;
+  familyMemberId?: string;
+  date?: string;
+  file: File;
+}
+
+export const uploadDocument = async (input: UploadDocumentInput): Promise<PatientDocument> => {
+  const formData = new FormData();
+  formData.append("title", input.title);
+  if (input.notes) formData.append("notes", input.notes);
+  if (input.familyMemberId) formData.append("familyMemberId", input.familyMemberId);
+  if (input.date) formData.append("date", input.date);
+  formData.append("file", input.file);
+
+  const { data } = await API.post("/medical-records/documents", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data.document;
+};
+
+export const deleteDocument = async (id: string): Promise<void> => {
+  await API.delete(`/medical-records/documents/${id}`);
 };

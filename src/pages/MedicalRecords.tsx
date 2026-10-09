@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Download, Search, Calendar, Pill, Activity, ArrowLeft, Loader2, Plus } from "lucide-react";
+import { FileText, Download, Search, Calendar, Pill, Activity, ArrowLeft, Loader2, Plus, Upload, Trash2, File as FileIcon } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -23,8 +23,11 @@ import {
   createVital,
   getLabResults,
   createLabResult,
+  getDocuments,
+  uploadDocument,
+  deleteDocument,
 } from "@/services/medicalRecords";
-import type { FamilyMember, ConsultationRecord, Prescription, VitalSign, LabResult, User } from "@/types";
+import type { FamilyMember, ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument, User } from "@/types";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
 
@@ -49,12 +52,17 @@ const MedicalRecords = () => {
   const [sendingRxId, setSendingRxId] = useState<string | null>(null);
   const [vitals, setVitals] = useState<VitalSign[]>([]);
   const [labs, setLabs] = useState<LabResult[]>([]);
+  const [documents, setDocuments] = useState<PatientDocument[]>([]);
 
   const [isVitalDialogOpen, setIsVitalDialogOpen] = useState(false);
   const [isPrescriptionDialogOpen, setIsPrescriptionDialogOpen] = useState(false);
+  const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vitalForm, setVitalForm] = useState({ bloodPressure: "", heartRate: "", temperature: "", weight: "", height: "" });
   const [prescriptionForm, setPrescriptionForm] = useState({ medication: "", dosage: "", instructions: "", refills: "0" });
+  const [documentForm, setDocumentForm] = useState({ title: "", notes: "" });
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // Scope used for every records fetch: patients scope by familyMemberId (their
   // own account owns the records); doctors scope by the target patient's userId.
@@ -65,16 +73,18 @@ const MedicalRecords = () => {
   const loadRecords = useCallback(async () => {
     if (isDoctor && !patientIdParam) return;
     try {
-      const [c, p, v, l] = await Promise.all([
+      const [c, p, v, l, d] = await Promise.all([
         getConsultations(scope),
         getPrescriptions(scope),
         getVitals(scope),
         getLabResults(scope),
+        getDocuments(scope),
       ]);
       setConsultations(c);
       setPrescriptions(p);
       setVitals(v);
       setLabs(l);
+      setDocuments(d);
     } catch (error) {
       toast({ title: "Couldn't load records", description: getErrorMessage(error), variant: "destructive" });
     }
@@ -177,6 +187,41 @@ const MedicalRecords = () => {
       toast({ title: "Couldn't send prescription", description: getErrorMessage(error), variant: "destructive" });
     } finally {
       setSendingRxId(null);
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!documentFile || !documentForm.title) return;
+    setIsSubmitting(true);
+    try {
+      await uploadDocument({
+        title: documentForm.title,
+        notes: documentForm.notes || undefined,
+        familyMemberId: familyMemberIdParam || undefined,
+        file: documentFile,
+      });
+      toast({ title: "Document uploaded" });
+      setIsDocumentDialogOpen(false);
+      setDocumentForm({ title: "", notes: "" });
+      setDocumentFile(null);
+      await loadRecords();
+    } catch (error) {
+      toast({ title: "Couldn't upload document", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    setDeletingDocId(id);
+    try {
+      await deleteDocument(id);
+      setDocuments((prev) => prev.filter((doc) => doc._id !== id));
+      toast({ title: "Document removed" });
+    } catch (error) {
+      toast({ title: "Couldn't remove document", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -320,6 +365,56 @@ const MedicalRecords = () => {
                     </DialogContent>
                   </Dialog>
                 )}
+
+                {!isDoctor && (
+                  <Dialog open={isDocumentDialogOpen} onOpenChange={setIsDocumentDialogOpen}>
+                    <Button variant="outline" size="sm" onClick={() => setIsDocumentDialogOpen(true)}>
+                      <Upload className="w-4 h-4 mr-1" /> Upload Document
+                    </Button>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Upload a Document</DialogTitle>
+                        <DialogDescription>
+                          Add an old scan, referral letter, insurance card, or other record of your own. Doctors can
+                          only see this once you've booked, requested, or been treated by them.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Title</Label>
+                          <Input
+                            value={documentForm.title}
+                            onChange={(e) => setDocumentForm({ ...documentForm, title: e.target.value })}
+                            placeholder="e.g. Chest X-ray, March 2025"
+                          />
+                        </div>
+                        <div>
+                          <Label>Notes (optional)</Label>
+                          <Textarea
+                            value={documentForm.notes}
+                            onChange={(e) => setDocumentForm({ ...documentForm, notes: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>File</Label>
+                          <Input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                            onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WEBP, GIF, or PDF, up to 10MB.</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2 mt-4">
+                        <Button variant="outline" onClick={() => setIsDocumentDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button onClick={handleUploadDocument} disabled={isSubmitting || !documentForm.title || !documentFile}>
+                          {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Upload
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </div>
           </CardContent>
@@ -340,11 +435,12 @@ const MedicalRecords = () => {
 
         {/* Records Tabs */}
         <Tabs defaultValue="consultations" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="consultations">Consultations</TabsTrigger>
             <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
             <TabsTrigger value="vitals">Vital Signs</TabsTrigger>
             <TabsTrigger value="labs">Lab Results</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
           </TabsList>
 
           <TabsContent value="consultations">
@@ -541,6 +637,57 @@ const MedicalRecords = () => {
                             </Button>
                           </a>
                         )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="documents">
+            {documents.length === 0 ? (
+              <p className="text-center text-sm text-gray-500 py-12">
+                {isDoctor ? "No documents shared yet." : "No documents uploaded yet."}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {documents.map((doc) => (
+                  <Card key={doc._id}>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-start space-x-3">
+                          <FileIcon className="w-5 h-5 text-blue-600 mt-1" />
+                          <div>
+                            <h3 className="font-semibold text-lg">{doc.title}</h3>
+                            {doc.notes && <p className="text-gray-600 mt-1">{doc.notes}</p>}
+                            <p className="text-sm text-gray-500 mt-1">
+                              Uploaded {new Date(doc.date).toLocaleDateString()} • {doc.fileName}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a href={`${API_ORIGIN}${doc.fileUrl}`} target="_blank" rel="noreferrer">
+                            <Button variant="outline" size="sm">
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                          </a>
+                          {!isDoctor && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={deletingDocId === doc._id}
+                              onClick={() => handleDeleteDocument(doc._id)}
+                            >
+                              {deletingDocId === doc._id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
