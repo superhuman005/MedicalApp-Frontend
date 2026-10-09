@@ -8,7 +8,7 @@ import { RefAvatar, RefBadge, RefButton, Card as RefCard } from "@/components/ui
 import { Icon } from "@/components/Icon";
 import {
   Video, CalendarDays, FileText, Users, Clock, MessageSquare, LogOut,
-  CreditCard, Loader2, Stethoscope, LayoutGrid, ChevronRight, UserRound,
+  CreditCard, Loader2, Stethoscope, LayoutGrid, ChevronRight, UserRound, Pill,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "@/components/NotificationBell";
@@ -28,21 +28,22 @@ import {
 } from "@/services/familyMembers";
 import { getMyAppointments } from "@/services/appointments";
 import { getCurrentSubscription } from "@/services/subscriptions";
-import { getConsultations } from "@/services/medicalRecords";
-import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord } from "@/types";
+import { getConsultations, getPrescriptions } from "@/services/medicalRecords";
+import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord, Prescription } from "@/types";
 
 // This dashboard's own emphasis color (teal, same as the app-wide brand
 // primary) - passed to RefShell for nav highlights. Doctor and admin
 // use their own accent hex so the three workspaces read as distinct roles.
 const ACCENT = "#0d9488";
 
-type SectionKey = "overview" | "request" | "appointments" | "records" | "patients" | "subscription";
+type SectionKey = "overview" | "request" | "appointments" | "records" | "prescriptions" | "patients" | "subscription";
 
 const NAV_ITEMS: RefNavItem[] = [
   { id: "overview", label: "Overview", icon: "grid" },
   { id: "request", label: "Request Care", icon: "stethoscope" },
   { id: "appointments", label: "Appointments", icon: "calendar" },
   { id: "records", label: "Records", icon: "file" },
+  { id: "prescriptions", label: "Prescriptions", icon: "pill" },
   { id: "patients", label: "Patients", icon: "user" },
   { id: "subscription", label: "Subscription", icon: "wallet" },
 ];
@@ -52,6 +53,7 @@ const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   request: { title: "Request Care", subtitle: "Get matched with an available doctor" },
   appointments: { title: "Appointments", subtitle: "Everything you've booked" },
   records: { title: "Medical Records", subtitle: "Your family's health history" },
+  prescriptions: { title: "Prescriptions", subtitle: "Medications your doctor has sent you" },
   patients: { title: "Patients", subtitle: "Manage who's covered on your account" },
   subscription: { title: "Subscription", subtitle: "Plan, usage, and billing" },
 };
@@ -70,8 +72,10 @@ const PatientDashboard = () => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
   const [recentRecords, setRecentRecords] = useState<ConsultationRecord[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [recordsLoading, setRecordsLoading] = useState(false);
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -108,6 +112,18 @@ const PatientDashboard = () => {
       .then((data) => setRecentRecords(data.slice(0, 3)))
       .catch(() => setRecentRecords([]))
       .finally(() => setRecordsLoading(false));
+  }, [selectedPatient]);
+
+  // Load this patient's prescriptions (prescriptions tab) - the backend only
+  // ever returns ones an admin has sent on ("fulfilled"), so everything here
+  // is safe to show as-is; nothing a doctor merely drafted shows up yet.
+  useEffect(() => {
+    if (!selectedPatient) return;
+    setPrescriptionsLoading(true);
+    getPrescriptions({ familyMemberId: selectedPatient.isSelf ? undefined : selectedPatient._id })
+      .then(setPrescriptions)
+      .catch(() => setPrescriptions([]))
+      .finally(() => setPrescriptionsLoading(false));
   }, [selectedPatient]);
 
   const handleLogout = async () => {
@@ -507,6 +523,76 @@ const PatientDashboard = () => {
                   <div className="text-center py-8 text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
                     <p>Please select a patient to view their medical records</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="prescriptions" className="mt-0 anim-rise">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-display">Prescriptions</CardTitle>
+                <CardDescription>Medications a doctor has sent you for your family members</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-6">
+                  <PatientSelector
+                    patients={patients}
+                    onPatientSelect={setSelectedPatient}
+                    selectedPatient={selectedPatient}
+                  />
+                </div>
+
+                {!selectedPatient ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Pill className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                    <p>Please select a patient to view their prescriptions</p>
+                  </div>
+                ) : prescriptionsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : prescriptions.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-8">
+                    No prescriptions yet for {selectedPatient.name}. Anything a doctor sends will show up here once
+                    it's been reviewed and released by our admin team.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {prescriptions.map((prescription) => (
+                      <div key={prescription._id} className="flex items-start justify-between gap-4 p-4 rounded-xl border border-border">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--c-accentsoft)]">
+                            <Pill className="w-4 h-4 text-[var(--c-brand)]" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-medium truncate">{prescription.medication}</h3>
+                            {prescription.dosage && <p className="text-sm text-muted-foreground">{prescription.dosage}</p>}
+                            {prescription.instructions && (
+                              <p className="text-sm text-muted-foreground mt-1">{prescription.instructions}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Prescribed by Dr. {prescription.prescribedBy.firstName} {prescription.prescribedBy.lastName} on{" "}
+                              {new Date(prescription.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge
+                            variant={prescription.status === "active" ? "default" : "secondary"}
+                            className={prescription.status === "active" ? "bg-green-500" : ""}
+                          >
+                            {prescription.status}
+                          </Badge>
+                          {prescription.refills > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {prescription.refills} refill{prescription.refills === 1 ? "" : "s"} remaining
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

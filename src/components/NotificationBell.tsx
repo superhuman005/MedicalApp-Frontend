@@ -10,6 +10,7 @@ import {
   markNotificationRead,
 } from "@/services/notifications";
 import { getSocket } from "@/services/socket";
+import { isUserInactive, playNotificationChime, warmNotificationAudio } from "@/lib/notificationSound";
 import type { AppNotification } from "@/types";
 
 const timeAgo = (iso: string) => {
@@ -51,7 +52,16 @@ const NotificationBell = () => {
     load();
   }, [load]);
 
-  // Live updates: prepend anything the server pushes us in real time.
+  // Unlocks the chime below the first time the person clicks or presses a
+  // key anywhere on the page, so it's ready to play later even if a
+  // notification arrives while this tab is in the background.
+  useEffect(() => warmNotificationAudio(), []);
+
+  // Live updates: prepend anything the server pushes us in real time, and -
+  // for a patient or doctor who isn't actively looking at the tab right now -
+  // play a short chime so a time-sensitive update (a new consultation
+  // request, a doctor coming online, a prescription being ready) doesn't go
+  // unnoticed until they happen to check back.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -59,6 +69,7 @@ const NotificationBell = () => {
     const onNew = (notification: AppNotification) => {
       setNotifications((prev) => [notification, ...prev].slice(0, 100));
       setUnreadCount((prev) => prev + 1);
+      if (isUserInactive()) playNotificationChime();
     };
 
     socket.on("notification:new", onNew);
