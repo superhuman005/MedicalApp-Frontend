@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DashboardShell, type ShellNavItem } from "@/components/DashboardShell";
+import { RefShell, type RefNavItem } from "@/components/RefShell";
+import { Card as RefCard } from "@/components/ui-ref";
 import {
   Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
   CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield, Tag, Send,
@@ -300,15 +301,15 @@ const AdminDashboard = () => {
 
   const pendingPrescriptionCount = prescriptions.filter((p) => p.adminStatus === "pending").length;
 
-  const NAV_ITEMS: ShellNavItem[] = [
-    { id: "doctors", label: "Doctors", icon: Stethoscope, badge: pendingDoctors.length || undefined },
-    { id: "reports", label: "Recommendations", icon: AlertTriangle, badge: overview?.openReports || undefined },
-    { id: "prescriptions", label: "Prescriptions", icon: Pill, badge: pendingPrescriptionCount || undefined },
-    { id: "appointments", label: "Appointments", icon: Calendar },
-    { id: "users", label: "Users", icon: Users },
-    { id: "admins", label: "Admins", icon: Shield },
-    { id: "plans", label: "Plans", icon: Tag },
-    { id: "payments", label: "Payments", icon: DollarSign },
+  const NAV_ITEMS: RefNavItem[] = [
+    { id: "doctors", label: "Doctors", icon: "stethoscope", badge: pendingDoctors.length || undefined },
+    { id: "reports", label: "Recommendations", icon: "alert", badge: overview?.openReports || undefined },
+    { id: "prescriptions", label: "Prescriptions", icon: "pill", badge: pendingPrescriptionCount || undefined },
+    { id: "appointments", label: "Appointments", icon: "calendar" },
+    { id: "users", label: "Users", icon: "user" },
+    { id: "admins", label: "Admins", icon: "shield" },
+    { id: "plans", label: "Plans", icon: "pin" },
+    { id: "payments", label: "Payments", icon: "wallet" },
   ];
 
   const filteredUsers = useMemo(() => {
@@ -354,7 +355,7 @@ const AdminDashboard = () => {
 
   return (
     <>
-    <DashboardShell
+    <RefShell
       nav={NAV_ITEMS}
       active={activeTab}
       onNav={(id) => setActiveTab(id as SectionKey)}
@@ -376,46 +377,38 @@ const AdminDashboard = () => {
     >
 
         <div className="space-y-6 anim-rise">
-          {/* Stats - persistent context above every section */}
+          {/* Stats - exact port of the reference's StatTile layout */}
           {overview && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <Card className="border-none shadow-none bg-secondary/60">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <Users className="w-3.5 h-3.5" />Patients
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{overview.totalPatients}</div>
-                </CardContent>
-              </Card>
-              <Card className="border-none shadow-none bg-accent/15">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <Stethoscope className="w-3.5 h-3.5" />Doctors
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{overview.totalDoctors}</div>
-                  {overview.pendingDoctors > 0 && (
-                    <p className="text-xs text-yellow-600 mt-1">{overview.pendingDoctors} pending approval</p>
-                  )}
-                </CardContent>
-              </Card>
-              <Card className="border-none shadow-none bg-secondary/60">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <Calendar className="w-3.5 h-3.5" />Appointments
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{overview.totalAppointments}</div>
-                  <p className="text-xs text-muted-foreground mt-1">{overview.appointmentsToday} today</p>
-                </CardContent>
-              </Card>
-              <Card className="border-none shadow-none bg-accent/15">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <DollarSign className="w-3.5 h-3.5" />Revenue
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{nairaFormatter.format(overview.revenue)}</div>
-                  <p className="text-xs text-muted-foreground mt-1">{overview.successfulPayments} payments</p>
-                </CardContent>
-              </Card>
+              <RefCard>
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+                  <Users className="w-3.5 h-3.5" />Patients
+                </p>
+                <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{overview.totalPatients}</p>
+              </RefCard>
+              <RefCard className="bg-[var(--c-accentsoft)]/60">
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+                  <Stethoscope className="w-3.5 h-3.5" />Doctors
+                </p>
+                <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{overview.totalDoctors}</p>
+                {overview.pendingDoctors > 0 && (
+                  <p className="text-[11.5px] text-[var(--c-warn)] mt-2">{overview.pendingDoctors} pending approval</p>
+                )}
+              </RefCard>
+              <RefCard>
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+                  <Calendar className="w-3.5 h-3.5" />Appointments
+                </p>
+                <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{overview.totalAppointments}</p>
+                <p className="text-[11.5px] text-[var(--c-muted)] mt-2">{overview.appointmentsToday} today</p>
+              </RefCard>
+              <RefCard className="bg-[var(--c-accentsoft)]/60">
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+                  <DollarSign className="w-3.5 h-3.5" />Revenue
+                </p>
+                <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{nairaFormatter.format(overview.revenue)}</p>
+                <p className="text-[11.5px] text-[var(--c-muted)] mt-2">{overview.successfulPayments} payments</p>
+              </RefCard>
             </div>
           )}
 
@@ -966,7 +959,7 @@ const AdminDashboard = () => {
             </Card>
           )}
         </div>
-    </DashboardShell>
+    </RefShell>
 
       {/* Reject prescription */}
       <Dialog open={!!rejectingRx} onOpenChange={(open) => !open && setRejectingRx(null)}>

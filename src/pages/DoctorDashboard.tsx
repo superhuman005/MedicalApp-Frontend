@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { DashboardShell, ShellAvatar, type ShellNavItem } from "@/components/DashboardShell";
+import { RefShell, type RefNavItem } from "@/components/RefShell";
+import { RefAvatar, Card as RefCard } from "@/components/ui-ref";
 import {
-  CalendarDays, Clock, LogOut, Loader2, Inbox, ClipboardList,
+  CalendarDays, Clock, LogOut, Loader2, ClipboardList,
   Wallet, BarChart3, AlertTriangle, UserRound,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -163,12 +164,12 @@ const DoctorDashboard = () => {
     return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && a.status !== 'cancelled';
   });
 
-  const NAV_ITEMS: ShellNavItem[] = [
-    { id: "requests", label: "Requests", icon: Inbox, badge: waitingCount || undefined },
-    { id: "appointments", label: "Today's Schedule", icon: CalendarDays },
-    { id: "patients", label: "Patient Records", icon: ClipboardList },
-    { id: "earnings", label: "Earnings", icon: Wallet },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
+  const NAV_ITEMS: RefNavItem[] = [
+    { id: "requests", label: "Requests", icon: "folder", badge: waitingCount || undefined },
+    { id: "appointments", label: "Today's Schedule", icon: "calendar" },
+    { id: "patients", label: "Patient Records", icon: "clip" },
+    { id: "earnings", label: "Earnings", icon: "wallet" },
+    { id: "analytics", label: "Analytics", icon: "activity" },
   ];
 
   // Real 6-month consultation trend computed from actual appointments (not fabricated).
@@ -196,7 +197,7 @@ const DoctorDashboard = () => {
   }
 
   return (
-    <DashboardShell
+    <RefShell
       nav={NAV_ITEMS}
       active={activeTab}
       onNav={(id) => setActiveTab(id as SectionKey)}
@@ -262,49 +263,41 @@ const DoctorDashboard = () => {
           )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - exact port of the reference's StatTile layout */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="border-border bg-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                <CalendarDays className="w-3.5 h-3.5" />
-                Today's Appointments
-              </div>
-              <div className="text-xl font-display font-semibold text-foreground">{todayAppointments.length}</div>
-            </CardContent>
-          </Card>
+          <RefCard>
+            <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+              <CalendarDays className="w-3.5 h-3.5" />
+              Today's Appointments
+            </p>
+            <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{todayAppointments.length}</p>
+          </RefCard>
 
-          <Card className="border-accentsoft bg-accentsoft/60">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                <Clock className="w-3.5 h-3.5" />
-                Patients Waiting
-              </div>
-              <div className="text-xl font-display font-semibold text-foreground">{waitingCount}</div>
-            </CardContent>
-          </Card>
+          <RefCard className="bg-[var(--c-accentsoft)]/60">
+            <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+              <Clock className="w-3.5 h-3.5" />
+              Patients Waiting
+            </p>
+            <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{waitingCount}</p>
+          </RefCard>
 
-          <Card className="border-border bg-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                <ClipboardList className="w-3.5 h-3.5" />
-                This Month
-              </div>
-              <div className="text-xl font-display font-semibold text-foreground">{thisMonthAppointments.length}</div>
-            </CardContent>
-          </Card>
+          <RefCard>
+            <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+              <ClipboardList className="w-3.5 h-3.5" />
+              This Month
+            </p>
+            <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{thisMonthAppointments.length}</p>
+          </RefCard>
 
-          <Card className="border-border bg-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                <BarChart3 className="w-3.5 h-3.5" />
-                Patient Rating
-              </div>
-              <div className="text-xl font-display font-semibold text-foreground">
-                {user.rating && user.rating > 0 ? user.rating.toFixed(1) : '—'}
-              </div>
-            </CardContent>
-          </Card>
+          <RefCard>
+            <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--c-muted)] mb-2">
+              <BarChart3 className="w-3.5 h-3.5" />
+              Patient Rating
+            </p>
+            <p className="text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">
+              {user.rating && user.rating > 0 ? user.rating.toFixed(1) : '—'}
+            </p>
+          </RefCard>
         </div>
 
         {/* Main Content */}
@@ -393,7 +386,7 @@ const DoctorDashboard = () => {
                       <CardContent className="p-5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <ShellAvatar src={appointment.patient.avatar} name={displayName} size={44} />
+                            <RefAvatar src={appointment.patient.avatar} name={displayName} size={44} />
                             <div>
                               <h3 className="font-medium">{displayName}</h3>
                               <p className="text-sm text-muted-foreground">{appointment.appointmentType}</p>
@@ -444,7 +437,7 @@ const DoctorDashboard = () => {
                       <CardContent className="p-5">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3 min-w-0">
-                            <ShellAvatar src={p.familyMember?.avatar || p.patient.avatar} name={displayName} size={40} />
+                            <RefAvatar src={p.familyMember?.avatar || p.patient.avatar} name={displayName} size={40} />
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h3 className="font-medium truncate">{displayName}</h3>
@@ -532,7 +525,7 @@ const DoctorDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardShell>
+    </RefShell>
   );
 };
 

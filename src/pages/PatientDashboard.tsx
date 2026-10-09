@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { DashboardShell, ShellAvatar, type ShellNavItem } from "@/components/DashboardShell";
+import { RefShell, type RefNavItem } from "@/components/RefShell";
+import { RefAvatar, RefBadge, RefButton, Card as RefCard } from "@/components/ui-ref";
+import { Icon } from "@/components/Icon";
 import {
   Video, CalendarDays, FileText, Users, Clock, MessageSquare, LogOut, Bot,
   CreditCard, Loader2, Stethoscope, LayoutGrid, ChevronRight, UserRound,
@@ -32,20 +34,20 @@ import { getConsultations } from "@/services/medicalRecords";
 import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord } from "@/types";
 
 // This dashboard's own emphasis color (teal, same as the app-wide brand
-// primary) - passed to DashboardShell for nav highlights. Doctor and admin
+// primary) - passed to RefShell for nav highlights. Doctor and admin
 // use their own accent hex so the three workspaces read as distinct roles.
 const ACCENT = "#0d9488";
 
 type SectionKey = "overview" | "request" | "ai-chat" | "appointments" | "records" | "patients" | "subscription";
 
-const NAV_ITEMS: ShellNavItem[] = [
-  { id: "overview", label: "Overview", icon: LayoutGrid },
-  { id: "request", label: "Request Care", icon: Stethoscope },
-  { id: "ai-chat", label: "AI Assistant", icon: Bot },
-  { id: "appointments", label: "Appointments", icon: CalendarDays },
-  { id: "records", label: "Records", icon: FileText },
-  { id: "patients", label: "Patients", icon: Users },
-  { id: "subscription", label: "Subscription", icon: CreditCard },
+const NAV_ITEMS: RefNavItem[] = [
+  { id: "overview", label: "Overview", icon: "grid" },
+  { id: "request", label: "Request Care", icon: "stethoscope" },
+  { id: "ai-chat", label: "AI Assistant", icon: "sparkle" },
+  { id: "appointments", label: "Appointments", icon: "calendar" },
+  { id: "records", label: "Records", icon: "file" },
+  { id: "patients", label: "Patients", icon: "user" },
+  { id: "subscription", label: "Subscription", icon: "wallet" },
 ];
 
 const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
@@ -175,7 +177,7 @@ const PatientDashboard = () => {
 
   return (
     <>
-      <DashboardShell
+      <RefShell
         nav={NAV_ITEMS}
         active={activeTab}
         onNav={(id) => setActiveTab(id as SectionKey)}
@@ -237,16 +239,16 @@ const PatientDashboard = () => {
 
         <Tabs value={activeTab} className="space-y-6">
           <TabsContent value="overview" className="mt-0 space-y-6 anim-rise">
-            {/* Hero: next appointment, in the reference's gradient-card idiom */}
-            <Card className="relative overflow-hidden border-transparent p-0 text-primary-foreground" style={{ background: "linear-gradient(135deg, #0b3b3a 0%, #0d5a52 45%, #124f62 100%)" }}>
+            {/* Hero: next appointment - exact port of the reference's NextVisit card */}
+            <RefCard pad={false} className="relative overflow-hidden border-transparent bg-[linear-gradient(135deg,#0b3b3a_0%,#0d5a52_45%,#124f62_100%)] text-white">
               <div className="grain absolute inset-0 opacity-60" />
-              <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-brand/25 blur-3xl" />
+              <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-[var(--c-brand)]/25 blur-3xl" />
               <div className="relative p-6">
                 {nextAppointment ? (
                   <>
-                    <Badge className="border border-white/15 bg-white/10 text-white/90 hover:bg-white/10">Next appointment</Badge>
+                    <RefBadge className="border border-white/15 bg-white/10 text-white/90" dot="#4ade80">Next appointment</RefBadge>
                     <div className="mt-5 flex flex-wrap items-center gap-4">
-                      <ShellAvatar name={`Dr. ${nextAppointment.doctor.firstName} ${nextAppointment.doctor.lastName}`} size={58} className="ring-2 ring-white/25" />
+                      <RefAvatar name={`Dr. ${nextAppointment.doctor.firstName} ${nextAppointment.doctor.lastName}`} size={62} className="ring-2 ring-white/25" />
                       <div className="min-w-0">
                         <h2 className="truncate text-[21px] leading-tight font-extrabold tracking-tight">
                           Dr. {nextAppointment.doctor.firstName} {nextAppointment.doctor.lastName}
@@ -257,78 +259,58 @@ const PatientDashboard = () => {
                       </div>
                       {["confirmed", "waiting", "in-progress"].includes(nextAppointment.status) && (
                         <Link to={`/video-call?appointmentId=${nextAppointment._id}&type=${nextAppointment.type}`} className="ml-auto">
-                          <Button className="bg-white text-[#0b3b3a] hover:bg-white/90 shadow-none">
-                            <Video className="w-4 h-4 mr-2" /> Join visit
-                          </Button>
+                          <RefButton className="bg-white text-[#0b3b3a] shadow-none hover:bg-white/90">
+                            <Icon name="video" className="h-4 w-4" /> Join visit
+                          </RefButton>
                         </Link>
                       )}
                     </div>
                   </>
                 ) : (
                   <>
-                    <Badge className="border border-white/15 bg-white/10 text-white/90 hover:bg-white/10">No upcoming visits</Badge>
+                    <RefBadge className="border border-white/15 bg-white/10 text-white/90">No upcoming visits</RefBadge>
                     <h2 className="mt-4 text-[21px] font-extrabold tracking-tight">Your schedule is clear</h2>
                     <p className="mt-1 text-[13px] text-white/70">Book a visit or send a care request whenever you need one.</p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Button className="bg-white text-[#0b3b3a] hover:bg-white/90 shadow-none" onClick={() => setActiveTab("request")}>
-                        <Stethoscope className="w-4 h-4 mr-2" /> Request care
-                      </Button>
+                      <RefButton className="bg-white text-[#0b3b3a] shadow-none hover:bg-white/90" onClick={() => setActiveTab("request")}>
+                        <Icon name="stethoscope" className="h-4 w-4" /> Request care
+                      </RefButton>
                       <Link to="/book-appointment">
-                        <Button variant="ghost" className="border border-white/20 text-white hover:bg-white/10 hover:text-white">
-                          <CalendarDays className="w-4 h-4 mr-2" /> Book appointment
-                        </Button>
+                        <RefButton variant="ghost" className="border border-white/20 text-white hover:bg-white/10 hover:text-white">
+                          <Icon name="calendar" className="h-4 w-4" /> Book appointment
+                        </RefButton>
                       </Link>
                     </div>
                   </>
                 )}
               </div>
-            </Card>
+            </RefCard>
 
-            {/* Quick Stats */}
+            {/* Quick Stats - exact port of the reference's StatTile card */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <Card className="border-border bg-card">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    Upcoming
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{upcomingAppointments.length}</div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Scheduled visits</p>
-                </CardContent>
-              </Card>
+              <RefCard>
+                <p className="truncate text-[12px] font-semibold text-[var(--c-muted)]">Upcoming</p>
+                <p className="mt-1 text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{upcomingAppointments.length}</p>
+                <p className="mt-2 text-[11.5px] text-[var(--c-muted)]">Scheduled visits</p>
+              </RefCard>
 
-              <Card className="border-border bg-card">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <Users className="w-3.5 h-3.5" />
-                    Family Members
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{patients.length}</div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Under your account</p>
-                </CardContent>
-              </Card>
+              <RefCard>
+                <p className="truncate text-[12px] font-semibold text-[var(--c-muted)]">Family Members</p>
+                <p className="mt-1 text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{patients.length}</p>
+                <p className="mt-2 text-[11.5px] text-[var(--c-muted)]">Under your account</p>
+              </RefCard>
 
-              <Card className="border-border bg-card">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <Stethoscope className="w-3.5 h-3.5" />
-                    Consultations
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground">{appointments.length}</div>
-                  <p className="text-xs text-muted-foreground mt-0.5">All time</p>
-                </CardContent>
-              </Card>
+              <RefCard>
+                <p className="truncate text-[12px] font-semibold text-[var(--c-muted)]">Consultations</p>
+                <p className="mt-1 text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)]">{appointments.length}</p>
+                <p className="mt-2 text-[11.5px] text-[var(--c-muted)]">All time</p>
+              </RefCard>
 
-              <Card className="border-accentsoft bg-accentsoft/60">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-2">
-                    <CreditCard className="w-3.5 h-3.5" />
-                    Current Plan
-                  </div>
-                  <div className="text-xl font-display font-semibold text-foreground capitalize">{subscription?.plan || 'free'}</div>
-                  <p className="text-xs text-muted-foreground mt-0.5 capitalize">{subscription?.status || 'active'}</p>
-                </CardContent>
-              </Card>
+              <RefCard className="bg-[var(--c-accentsoft)]/60">
+                <p className="truncate text-[12px] font-semibold text-[var(--c-muted)]">Current Plan</p>
+                <p className="mt-1 text-[25px] leading-none font-extrabold tracking-tight text-[var(--c-ink)] capitalize">{subscription?.plan || 'free'}</p>
+                <p className="mt-2 text-[11.5px] text-[var(--c-muted)] capitalize">{subscription?.status || 'active'}</p>
+              </RefCard>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -476,7 +458,7 @@ const PatientDashboard = () => {
                       .map((appointment) => (
                         <div key={appointment._id} className="flex justify-between items-center p-4 rounded-xl border border-border">
                           <div className="flex items-center gap-3">
-                            <ShellAvatar name={`Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`} size={38} />
+                            <RefAvatar name={`Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`} size={38} />
                             <div>
                               <h3 className="font-medium">Dr. {appointment.doctor.firstName} {appointment.doctor.lastName}</h3>
                               <p className="text-sm text-muted-foreground">{appointment.doctor.specialization}</p>
@@ -577,7 +559,7 @@ const PatientDashboard = () => {
             <PatientSubscription />
           </TabsContent>
         </Tabs>
-      </DashboardShell>
+      </RefShell>
 
       {/* Floating AI Chatbot Button */}
       <Drawer open={isChatbotOpen} onOpenChange={setIsChatbotOpen} shouldScaleBackground={false}>

@@ -110,6 +110,48 @@
   }
 }
 
+/* Exact raw-hex tokens ported verbatim from the reference design app.
+   Used via arbitrary-value classes (e.g. bg-[var(--c-surface)]) in the
+   ported Icon/ui-ref/RefShell/widgets-ref components so those pieces
+   render pixel-identical to the reference, independent of the shadcn
+   HSL tokens above (which the rest of the app, dialogs, forms, etc.
+   still use). */
+:root {
+  --c-canvas: #eef4f5;
+  --c-surface: #ffffff;
+  --c-surface2: #f5f9fa;
+  --c-line: #dde7e9;
+  --c-ink: #0b2026;
+  --c-muted: #5f7a81;
+  --c-brand: #0d9488;
+  --c-brandink: #0b7a70;
+  --c-brandsoft: #dff5f2;
+  --c-accent: #5b5bd6;
+  --c-accentsoft: #e9e9fb;
+  --c-warn: #c2730a;
+  --c-warnsoft: #fdf2dd;
+  --c-danger: #dc2626;
+  --c-dangersoft: #fde8e8;
+}
+
+.dark {
+  --c-canvas: #05090d;
+  --c-surface: #0d161c;
+  --c-surface2: #121e25;
+  --c-line: #1d2d36;
+  --c-ink: #e6f1f3;
+  --c-muted: #88a2aa;
+  --c-brand: #2dd4bf;
+  --c-brandink: #5eead4;
+  --c-brandsoft: #0f2e2d;
+  --c-accent: #8b8bf5;
+  --c-accentsoft: #1b1d3a;
+  --c-warn: #f0b429;
+  --c-warnsoft: #332611;
+  --c-danger: #f87171;
+  --c-dangersoft: #351a1c;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -160,12 +202,66 @@
     transform: scale(1) translateY(0);
   }
 }
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
 
 .anim-rise {
   animation: floatUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-pop {
   animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-ring {
+  animation: pulseRing 2s ease-out infinite;
+}
+.anim-ecg {
+  stroke-dasharray: 1000;
+  animation: dash 6s linear infinite;
+}
+.anim-draw {
+  stroke-dasharray: 1200;
+  animation: drawLine 1.4s ease-out both;
+}
+.anim-blink {
+  animation: blink 1.4s ease-in-out infinite;
 }
 
 .grain {
