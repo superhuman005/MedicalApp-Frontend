@@ -356,6 +356,16 @@ export interface Review {
   createdAt: string;
 }
 
+// A review as seen in the admin queue - unlike a doctor's own dashboard
+// (which only ever sees its own accumulated average rating/count), admin
+// sees every individual review platform-wide, with the doctor's running
+// average attached and the patient's contact info populated.
+export interface AdminReviewItem extends Omit<Review, "doctor" | "patient" | "appointment"> {
+  doctor: { _id: string; firstName: string; lastName: string; specialization?: string; avatar?: string; rating?: number; ratingCount?: number };
+  patient: { _id: string; firstName: string; lastName: string; email: string; avatar?: string };
+  appointment?: { _id: string; date: string; time: string; type: string; appointmentType: string };
+}
+
 // A patient (or a patient's family member) this doctor has actually had a
 // qualifying appointment with - see GET /api/doctors/me/patients.
 export interface DoctorPatient {

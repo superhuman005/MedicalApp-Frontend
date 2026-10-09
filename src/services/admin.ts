@@ -1,5 +1,5 @@
 import API from "./api";
-import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription, AdminPlan } from "@/types";
+import type { AdminOverview, User, Appointment, DoctorReportItem, Payment, AdminPrescription, AdminPlan, AdminReviewItem } from "@/types";
 
 export const getAdminOverview = async (): Promise<AdminOverview> => {
   const { data } = await API.get("/admin/overview");
@@ -34,6 +34,16 @@ export const rejectDoctor = async (id: string, note?: string): Promise<User> => 
 export const getAllAppointments = async (status?: string): Promise<Appointment[]> => {
   const { data } = await API.get("/admin/appointments", { params: { status } });
   return data.appointments;
+};
+
+// Every patient review of every doctor, platform-wide - a doctor's own
+// dashboard only ever shows their own accumulated average (see
+// user.rating/ratingCount); this is the full underlying detail, admin-only.
+export const getAllReviews = async (
+  doctorId?: string
+): Promise<{ reviews: AdminReviewItem[]; averageRating: number; count: number }> => {
+  const { data } = await API.get("/admin/reviews", { params: { doctorId } });
+  return { reviews: data.reviews, averageRating: data.averageRating, count: data.count };
 };
 
 export const getAdminDoctorReports = async (status?: string): Promise<DoctorReportItem[]> => {

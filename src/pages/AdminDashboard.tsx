@@ -13,7 +13,7 @@ import { Card as RefCard } from "@/components/ui-ref";
 import {
   Users, Stethoscope, Calendar, DollarSign, AlertTriangle, LogOut, Loader2,
   CheckCircle2, XCircle, ClipboardList, Pill, UserPlus, Copy, Shield, Tag, Send,
-  Search, Mail, Phone, UserRound, BadgeCheck, Briefcase, Cake,
+  Search, Mail, Phone, UserRound, BadgeCheck, Briefcase, Cake, Star,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "@/components/NotificationBell";
@@ -37,9 +37,10 @@ import {
   updateAdminPrescriptionStatus,
   getAdmins,
   createAdmin,
+  getAllReviews,
 } from "@/services/admin";
 import { getSocket } from "@/services/socket";
-import type { AdminOverview, User, UserRole, Appointment, DoctorReportItem, Payment, AdminPrescription } from "@/types";
+import type { AdminOverview, User, UserRole, Appointment, DoctorReportItem, Payment, AdminPrescription, AdminReviewItem } from "@/types";
 
 const nairaFormatter = new Intl.NumberFormat("en-NG", {
   style: "currency",
@@ -47,7 +48,7 @@ const nairaFormatter = new Intl.NumberFormat("en-NG", {
   maximumFractionDigits: 0,
 });
 
-type SectionKey = "doctors" | "reports" | "prescriptions" | "appointments" | "users" | "admins" | "plans" | "payments";
+type SectionKey = "doctors" | "reports" | "reviews" | "prescriptions" | "appointments" | "users" | "admins" | "plans" | "payments";
 
 // Admin console emphasis color - sky blue, distinct from the patient app's
 // teal and the doctor workspace's indigo.
@@ -56,6 +57,7 @@ const ACCENT = "#0ea5e9";
 const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   doctors: { title: "Doctors", subtitle: "Approvals and doctor accounts" },
   reports: { title: "Recommendations", subtitle: "Private notes doctors send after a consultation" },
+  reviews: { title: "Ratings & Reviews", subtitle: "Every patient review of every doctor, platform-wide" },
   prescriptions: { title: "Prescriptions", subtitle: "Prescriptions sent to the admin team" },
   appointments: { title: "Appointments", subtitle: "All appointments platform-wide" },
   users: { title: "Users", subtitle: "Everyone registered on TeleMed" },
@@ -76,6 +78,8 @@ const AdminDashboard = () => {
   const [allDoctors, setAllDoctors] = useState<User[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [reports, setReports] = useState<DoctorReportItem[]>([]);
+  const [reviews, setReviews] = useState<AdminReviewItem[]>([]);
+  const [reviewsAverage, setReviewsAverage] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState<"all" | UserRole>("all");
@@ -116,7 +120,7 @@ const AdminDashboard = () => {
     try {
       const [
         overviewData, pendingData, doctorsData, appointmentsData, reportsData, usersData, paymentsData,
-        prescriptionsData, adminsData,
+        prescriptionsData, adminsData, reviewsData,
       ] =
         await Promise.all([
           getAdminOverview(),
@@ -128,6 +132,7 @@ const AdminDashboard = () => {
           getAllPayments(),
           getAdminPrescriptions(),
           getAdmins(),
+          getAllReviews(),
         ]);
       setOverview(overviewData);
       setPendingDoctors(pendingData);
@@ -138,6 +143,8 @@ const AdminDashboard = () => {
       setPayments(paymentsData);
       setPrescriptions(prescriptionsData);
       setAdmins(adminsData);
+      setReviews(reviewsData.reviews);
+      setReviewsAverage(reviewsData.averageRating);
     } catch (error) {
       toast({ title: "Couldn't load admin data", description: getErrorMessage(error), variant: "destructive" });
     } finally {
@@ -304,6 +311,7 @@ const AdminDashboard = () => {
   const NAV_ITEMS: RefNavItem[] = [
     { id: "doctors", label: "Doctors", icon: "stethoscope", badge: pendingDoctors.length || undefined },
     { id: "reports", label: "Recommendations", icon: "alert", badge: overview?.openReports || undefined },
+    { id: "reviews", label: "Ratings & Reviews", icon: "star" },
     { id: "prescriptions", label: "Prescriptions", icon: "pill", badge: pendingPrescriptionCount || undefined },
     { id: "appointments", label: "Appointments", icon: "calendar" },
     { id: "users", label: "Users", icon: "user" },
@@ -574,6 +582,71 @@ const AdminDashboard = () => {
                               {actingOnId === report._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ClipboardList className="w-4 h-4 mr-1" />}
                               Mark Reviewed
                             </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === "reviews" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ratings & Reviews</CardTitle>
+                <CardDescription>
+                  Every review a patient has left for a doctor, platform-wide. A doctor's own dashboard only shows
+                  their own accumulated average - this is the full detail behind it.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg">
+                  <Star className="w-6 h-6 text-yellow-500 fill-yellow-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{reviewsAverage > 0 ? reviewsAverage.toFixed(1) : '—'}</p>
+                    <p className="text-xs text-gray-500">
+                      Platform-wide average across {reviews.length} review{reviews.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </div>
+                {reviews.length === 0 ? (
+                  <p className="text-center text-sm text-gray-500 py-8">No reviews submitted yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <Card key={review._id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <p className="font-medium">
+                                Dr. {review.doctor.firstName} {review.doctor.lastName}
+                                {review.doctor.specialization && ` • ${review.doctor.specialization}`}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Reviewed by {review.patient.firstName} {review.patient.lastName} ({review.patient.email})
+                                {" "}• {new Date(review.createdAt).toLocaleString()}
+                                {review.appointment && ` • ${review.appointment.appointmentType}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          {review.comment && (
+                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{review.comment}</p>
+                          )}
+                          {typeof review.doctor.rating === "number" && (
+                            <p className="text-xs text-gray-400 mt-2">
+                              Dr. {review.doctor.lastName}'s overall average: {review.doctor.rating.toFixed(1)} (
+                              {review.doctor.ratingCount || 0} review{review.doctor.ratingCount === 1 ? '' : 's'})
+                            </p>
                           )}
                         </CardContent>
                       </Card>
