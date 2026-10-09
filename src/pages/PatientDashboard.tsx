@@ -30,6 +30,7 @@ import {
 import { getMyAppointments } from "@/services/appointments";
 import { getCurrentSubscription } from "@/services/subscriptions";
 import { getConsultations, getPrescriptions, getVitals } from "@/services/medicalRecords";
+import { getSocket } from "@/services/socket";
 import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord, Prescription, VitalSign } from "@/types";
 
 // This dashboard's own emphasis color (teal, same as the app-wide brand
@@ -135,7 +136,7 @@ const PatientDashboard = () => {
   // Load this patient's prescriptions (prescriptions tab) - the backend only
   // ever returns ones an admin has sent on ("fulfilled"), so everything here
   // is safe to show as-is; nothing a doctor merely drafted shows up yet.
-  useEffect(() => {
+  const loadPrescriptions = useCallback(() => {
     if (!selectedPatient) return;
     setPrescriptionsLoading(true);
     getPrescriptions({ familyMemberId: selectedPatient.isSelf ? undefined : selectedPatient._id })
@@ -143,6 +144,23 @@ const PatientDashboard = () => {
       .catch(() => setPrescriptions([]))
       .finally(() => setPrescriptionsLoading(false));
   }, [selectedPatient]);
+
+  useEffect(() => {
+    loadPrescriptions();
+  }, [loadPrescriptions]);
+
+  // Live-refresh the moment admin sends a prescription on - otherwise a
+  // patient already sitting on this tab wouldn't see it until their next
+  // full page load, even though the notification bell fired right away.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handleFulfilled = () => loadPrescriptions();
+    socket.on("prescription:fulfilled", handleFulfilled);
+    return () => {
+      socket.off("prescription:fulfilled", handleFulfilled);
+    };
+  }, [loadPrescriptions]);
 
   const handleLogout = async () => {
     await logout();

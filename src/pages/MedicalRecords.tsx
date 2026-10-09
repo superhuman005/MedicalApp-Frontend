@@ -27,6 +27,7 @@ import {
   uploadDocument,
   deleteDocument,
 } from "@/services/medicalRecords";
+import { getSocket } from "@/services/socket";
 import type { FamilyMember, ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument, User } from "@/types";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
@@ -122,6 +123,19 @@ const MedicalRecords = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyMemberIdParam, patientIdParam, isDoctor]);
+
+  // Live-refresh the moment admin sends a prescription on - the backend only
+  // emits this to the patient it belongs to, so this is a no-op for a doctor
+  // viewing someone else's chart.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handleFulfilled = () => loadRecords();
+    socket.on("prescription:fulfilled", handleFulfilled);
+    return () => {
+      socket.off("prescription:fulfilled", handleFulfilled);
+    };
+  }, [loadRecords]);
 
   const filteredConsultations = consultations.filter((c) =>
     (c.diagnosis || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
