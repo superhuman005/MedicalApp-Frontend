@@ -81,6 +81,13 @@ const ChatConsultation = ({
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
   const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+  // True once *this* tab learns the consultation is over - either because
+  // the local user just ended it (set right before the request goes out) or
+  // because the other party ended it and the backend's live
+  // "appointment:updated" event told us so (see the effect below). Either
+  // way, the chat is read-only from this point on.
+  const [remotelyEnded, setRemotelyEnded] = useState(false);
+  const endedLocallyRef = useRef(false);
 
   // Description tab state
   const [description, setDescription] = useState("");
@@ -124,6 +131,42 @@ const ChatConsultation = ({
     };
   }, [conversationId]);
 
+  // Live hand-off when the OTHER party ends the consultation: the backend
+  // emits "appointment:updated" straight to both participants' personal
+  // socket rooms whenever an appointment's status changes (see
+  // updateAppointmentStatus on the backend). If this tab didn't just trigger
+  // the end itself, close out the chat here too instead of leaving it open
+  // with no sign anything happened.
+  useEffect(() => {
+    if (!appointmentId) return;
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleAppointmentUpdated = (updated: { _id: string; status: string }) => {
+      if (updated._id !== appointmentId || updated.status !== "completed" || endedLocallyRef.current) return;
+
+      setRemotelyEnded(true);
+      toast({
+        title: "Consultation ended",
+        description: `${otherPartyName} ended this consultation.`,
+      });
+
+      if (!isDoctor && doctorId && doctorName) {
+        // Offer the same rating prompt the patient would see if they'd ended
+        // it themselves, while any prescription clears admin review.
+        setIsRateDialogOpen(true);
+      } else {
+        navigate(backTo);
+      }
+    };
+
+    socket.on("appointment:updated", handleAppointmentUpdated);
+    return () => {
+      socket.off("appointment:updated", handleAppointmentUpdated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentId, isDoctor, doctorId, doctorName, otherPartyName, backTo]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -161,9 +204,11 @@ const ChatConsultation = ({
   const handleEndConsultation = async () => {
     if (!appointmentId) return;
     setIsEnding(true);
+    endedLocallyRef.current = true;
     try {
       await updateAppointmentStatus(appointmentId, "completed");
       setIsEndDialogOpen(false);
+      setRemotelyEnded(true);
       if (isDoctor) {
         toast({ title: "Consultation ended" });
         navigate(backTo);
@@ -173,6 +218,7 @@ const ChatConsultation = ({
         setIsRateDialogOpen(true);
       }
     } catch (error) {
+      endedLocallyRef.current = false;
       toast({ title: "Couldn't end consultation", description: getErrorMessage(error), variant: "destructive" });
     } finally {
       setIsEnding(false);
@@ -243,7 +289,7 @@ const ChatConsultation = ({
               </Button>
             </Link>
           )}
-          {appointmentId && (
+          {appointmentId && !remotelyEnded && (
             <Button
               variant="ghost"
               size="sm"
@@ -283,6 +329,15 @@ const ChatConsultation = ({
       </div>
 
       {banner && activeView === "chat" && <div className="px-4 pt-3 bg-gray-100">{banner}</div>}
+
+      {remotelyEnded && activeView === "chat" && (
+        <div className="px-4 pt-3 bg-gray-100">
+          <div className="flex items-center gap-2 bg-gray-200 text-gray-700 rounded-lg px-3 py-2 text-xs">
+            <PhoneOff className="w-3.5 h-3.5 shrink-0" />
+            This consultation has ended. You can still read back through the messages, but nothing new can be sent.
+          </div>
+        </div>
+      )}
 
       {activeView === "description" ? (
         <div className="flex-1 overflow-y-auto p-4 bg-gray-100 space-y-4">
@@ -421,13 +476,14 @@ const ChatConsultation = ({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type a message..."
+              placeholder={remotelyEnded ? "This consultation has ended" : "Type a message..."}
+              disabled={remotelyEnded}
               className="w-full rounded-full border-gray-300 py-3"
             />
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!message.trim() || isSending}
+            disabled={!message.trim() || isSending || remotelyEnded}
             className="bg-green-600 hover:bg-green-700 rounded-full p-3"
           >
             {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
