@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +29,7 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireDraft>(emptyQuestionnaire());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmitRequest = async () => {
     if (!selectedPatient || !consultationType) return;
@@ -40,7 +42,7 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
 
     setIsSubmitting(true);
     try {
-      await createConsultationRequest({
+      const created = await createConsultationRequest({
         type: consultationType,
         urgency: urgencyLevel,
         message: questionnaire.chiefComplaint.trim(),
@@ -48,14 +50,21 @@ const DoctorList = ({ selectedPatient, onSelectPatient, onRequestSent }: DoctorL
         familyMemberId: selectedPatient._id,
       });
 
-      toast({
-        title: "Consultation Request Sent",
-        description: `A ${consultationType} consultation request has been sent to available doctors. You will be notified when a doctor accepts your request.`,
-      });
-
       setConsultationType(null);
       setQuestionnaire(emptyQuestionnaire());
       onRequestSent?.();
+
+      if (consultationType === "chat") {
+        // Chat requests open straight into the live conversation - if no
+        // doctor is online yet, TeleMed AI will already be attending by the
+        // time this page loads.
+        navigate(`/consultation-chat/${created._id}`);
+      } else {
+        toast({
+          title: "Consultation Request Sent",
+          description: "Your video consultation request has been sent to available doctors. You will be notified when a doctor accepts your request.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Couldn't send request",

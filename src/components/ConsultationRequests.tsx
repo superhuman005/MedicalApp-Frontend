@@ -64,7 +64,14 @@ const ConsultationRequests = () => {
         description: `Starting ${request.type} consultation with ${request.patient.firstName} ${request.patient.lastName}`,
       });
       setRequests((prev) => prev.filter((r) => r._id !== request._id));
-      navigate(`/video-call?appointmentId=${appointment._id}&type=${appointment.type}`);
+      if (request.type === "chat") {
+        // Chat requests already have a live conversation thread keyed by the
+        // request id (possibly with TeleMed AI's messages in it already) -
+        // jump straight into that instead of the video-call page.
+        navigate(`/consultation-chat/${request._id}`);
+      } else {
+        navigate(`/video-call?appointmentId=${appointment._id}&type=${appointment.type}`);
+      }
     } catch (error) {
       toast({
         title: "Couldn't accept request",

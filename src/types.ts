@@ -104,6 +104,9 @@ export interface ConsultationRequestItem {
   message?: string;
   questionnaire?: Questionnaire;
   status: ConsultationRequestStatus;
+  // True while the AI stand-in doctor is attending this chat request
+  // because no human doctor was online when it was sent.
+  aiHandling?: boolean;
   timeAgo?: string;
   appointment?: string;
   createdAt: string;
@@ -262,8 +265,10 @@ export interface ChatMessageItem {
   _id: string;
   conversation: string;
   conversationModel: "Appointment" | "ConsultationRequest";
-  sender: { _id: string; firstName: string; lastName: string; avatar?: string; role: UserRole };
-  senderRole: "patient" | "doctor";
+  // Absent for an AI-authored message (senderRole "ai") - the AI stand-in
+  // doctor isn't a User account.
+  sender?: { _id: string; firstName: string; lastName: string; avatar?: string; role: UserRole };
+  senderRole: "patient" | "doctor" | "ai";
   text?: string;
   attachmentUrl?: string;
   status: "sent" | "delivered" | "read";

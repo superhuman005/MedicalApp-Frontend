@@ -25,6 +25,11 @@ export const getConsultationRequests = async (
   return data.requests;
 };
 
+export const getConsultationRequestById = async (id: string): Promise<ConsultationRequestItem> => {
+  const { data } = await API.get(`/consultation-requests/${id}`);
+  return data.request;
+};
+
 export const acceptConsultationRequest = async (
   id: string
 ): Promise<{ request: ConsultationRequestItem; appointment: Appointment }> => {

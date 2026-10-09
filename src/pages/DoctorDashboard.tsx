@@ -15,6 +15,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import DoctorEarnings from "@/components/DoctorEarnings";
 import DoctorProfile from "@/components/DoctorProfile";
 import ConsultationRequests from "@/components/ConsultationRequests";
+import DoctorAIAssistant from "@/components/DoctorAIAssistant";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
@@ -28,12 +29,13 @@ import type { Appointment, DoctorStatus, DoctorPatient } from "@/types";
 // per-role accent convention.
 const ACCENT = "#5b5bd6";
 
-type SectionKey = "requests" | "appointments" | "patients" | "earnings" | "analytics";
+type SectionKey = "requests" | "appointments" | "patients" | "ai-assist" | "earnings" | "analytics";
 
 const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   requests: { title: "Requests", subtitle: "Patients waiting for a doctor" },
   appointments: { title: "Today's Schedule", subtitle: "Your appointments for today" },
   patients: { title: "Patient Records", subtitle: "Everyone you've treated" },
+  "ai-assist": { title: "AI Assistant", subtitle: "A clinical co-pilot for your own reference" },
   earnings: { title: "Earnings", subtitle: "Your consultations and payouts" },
   analytics: { title: "Analytics", subtitle: "Trends and patient feedback" },
 };
@@ -168,6 +170,7 @@ const DoctorDashboard = () => {
     { id: "requests", label: "Requests", icon: "folder", badge: waitingCount || undefined },
     { id: "appointments", label: "Today's Schedule", icon: "calendar" },
     { id: "patients", label: "Patient Records", icon: "clip" },
+    { id: "ai-assist", label: "AI Assistant", icon: "sparkle" },
     { id: "earnings", label: "Earnings", icon: "wallet" },
     { id: "analytics", label: "Analytics", icon: "activity" },
   ];
@@ -468,6 +471,10 @@ const DoctorDashboard = () => {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="ai-assist" className="mt-0">
+            <DoctorAIAssistant />
           </TabsContent>
 
           <TabsContent value="earnings" className="mt-0">

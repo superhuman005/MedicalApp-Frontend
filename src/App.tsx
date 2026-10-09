@@ -19,6 +19,7 @@ import MedicalRecords from "./pages/MedicalRecords";
 import SubscriptionCallback from "./pages/SubscriptionCallback";
 import DoctorProfilePage from "./pages/DoctorProfilePage";
 import MyProfile from "./pages/MyProfile";
+import ConsultationChatPage from "./pages/ConsultationChatPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -109,6 +110,16 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <DoctorProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Chat for a consultation request for its whole lifecycle - pending
+              (possibly AI-attended) through to doctor-accepted. */}
+          <Route
+            path="/consultation-chat/:requestId"
+            element={
+              <ProtectedRoute>
+                <ConsultationChatPage />
               </ProtectedRoute>
             }
           />

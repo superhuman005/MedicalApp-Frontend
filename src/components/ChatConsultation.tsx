@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Send, Loader2, ArrowLeft, Video, MessageSquare, FileText, PhoneOff } from "lucide-react";
+import { Send, Loader2, ArrowLeft, Video, MessageSquare, FileText, PhoneOff, Bot } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
@@ -39,6 +39,9 @@ interface ChatConsultationProps {
   // Needed only for the patient's post-end rating prompt.
   doctorId?: string;
   doctorName?: string;
+  // Shown just below the header - e.g. the patient-side "AI is assisting
+  // you until a doctor joins" notice on a pending consultation request.
+  banner?: ReactNode;
 }
 
 const URGENCY_OPTIONS: { value: "low" | "medium" | "high"; label: string }[] = [
@@ -58,6 +61,7 @@ const ChatConsultation = ({
   appointmentId,
   doctorId,
   doctorName,
+  banner,
 }: ChatConsultationProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -278,6 +282,8 @@ const ChatConsultation = ({
         )}
       </div>
 
+      {banner && activeView === "chat" && <div className="px-4 pt-3 bg-gray-100">{banner}</div>}
+
       {activeView === "description" ? (
         <div className="flex-1 overflow-y-auto p-4 bg-gray-100 space-y-4">
           <div className="bg-white rounded-lg p-4 shadow-sm space-y-3">
@@ -373,21 +379,31 @@ const ChatConsultation = ({
           </p>
         ) : (
           messages.map((msg) => {
-            const isMine = msg.sender._id === user?._id;
+            const isAi = msg.senderRole === "ai";
+            const isMine = !isAi && msg.sender?._id === user?._id;
             return (
               <div key={msg._id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg shadow-sm ${
-                    isMine
-                      ? 'bg-green-500 text-white rounded-br-none'
-                      : 'bg-white text-gray-800 rounded-bl-none'
-                  }`}
-                >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                  <div className="flex items-center justify-end mt-2 space-x-1">
-                    <span className={`text-xs ${isMine ? 'text-green-100' : 'text-gray-500'}`}>
-                      {formatTime(msg.createdAt)}
-                    </span>
+                <div className="max-w-xs lg:max-w-md">
+                  {isAi && (
+                    <div className="flex items-center gap-1 mb-1 px-1 text-xs font-medium text-gray-500">
+                      <Bot className="w-3.5 h-3.5" /> TeleMed AI
+                    </div>
+                  )}
+                  <div
+                    className={`px-4 py-3 rounded-lg shadow-sm ${
+                      isMine
+                        ? 'bg-green-500 text-white rounded-br-none'
+                        : isAi
+                        ? 'bg-accent/10 text-gray-800 border border-accent/30 rounded-bl-none'
+                        : 'bg-white text-gray-800 rounded-bl-none'
+                    }`}
+                  >
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                    <div className="flex items-center justify-end mt-2 space-x-1">
+                      <span className={`text-xs ${isMine ? 'text-green-100' : 'text-gray-500'}`}>
+                        {formatTime(msg.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

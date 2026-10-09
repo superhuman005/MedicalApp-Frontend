@@ -3,12 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { RefShell, type RefNavItem } from "@/components/RefShell";
 import { RefAvatar, RefBadge, RefButton, Card as RefCard } from "@/components/ui-ref";
 import { Icon } from "@/components/Icon";
 import {
-  Video, CalendarDays, FileText, Users, Clock, MessageSquare, LogOut, Bot,
+  Video, CalendarDays, FileText, Users, Clock, MessageSquare, LogOut,
   CreditCard, Loader2, Stethoscope, LayoutGrid, ChevronRight, UserRound,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -17,7 +16,6 @@ import PatientSubscription from "@/components/PatientSubscription";
 import PatientSelector from "@/components/PatientSelector";
 import PatientManagement from "@/components/PatientManagement";
 import DoctorList from "@/components/DoctorList";
-import AIChatbot from "@/components/AIChatbot";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
@@ -38,12 +36,11 @@ import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, Consu
 // use their own accent hex so the three workspaces read as distinct roles.
 const ACCENT = "#0d9488";
 
-type SectionKey = "overview" | "request" | "ai-chat" | "appointments" | "records" | "patients" | "subscription";
+type SectionKey = "overview" | "request" | "appointments" | "records" | "patients" | "subscription";
 
 const NAV_ITEMS: RefNavItem[] = [
   { id: "overview", label: "Overview", icon: "grid" },
   { id: "request", label: "Request Care", icon: "stethoscope" },
-  { id: "ai-chat", label: "AI Assistant", icon: "sparkle" },
   { id: "appointments", label: "Appointments", icon: "calendar" },
   { id: "records", label: "Records", icon: "file" },
   { id: "patients", label: "Patients", icon: "user" },
@@ -53,7 +50,6 @@ const NAV_ITEMS: RefNavItem[] = [
 const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   overview: { title: "Overview", subtitle: "A quick look at your care" },
   request: { title: "Request Care", subtitle: "Get matched with an available doctor" },
-  "ai-chat": { title: "AI Assistant", subtitle: "Ask about symptoms or medications" },
   appointments: { title: "Appointments", subtitle: "Everything you've booked" },
   records: { title: "Medical Records", subtitle: "Your family's health history" },
   patients: { title: "Patients", subtitle: "Manage who's covered on your account" },
@@ -68,7 +64,6 @@ const PatientDashboard = () => {
   const [activeTab, setActiveTab] = useState<SectionKey>("overview");
   const [selectedPatient, setSelectedPatient] = useState<FamilyMember | null>(null);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   const [patients, setPatients] = useState<FamilyMember[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -345,26 +340,6 @@ const PatientDashboard = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-display text-lg">AI Health Assistant</CardTitle>
-                  <CardDescription>Get quick answers to your health questions</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => setIsChatbotOpen(true)}
-                  >
-                    <Bot className="w-4 h-4 mr-2" />
-                    Chat with AI Assistant
-                  </Button>
-                  <p className="text-sm text-muted-foreground">
-                    Ask questions about symptoms, medications, or general health information.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
                   <CardTitle className="font-display text-lg">Subscription Status</CardTitle>
                   <CardDescription>Manage your plan</CardDescription>
                 </CardHeader>
@@ -434,10 +409,6 @@ const PatientDashboard = () => {
               onSelectPatient={() => setShowPatientSelector(true)}
               onRequestSent={loadDashboard}
             />
-          </TabsContent>
-
-          <TabsContent value="ai-chat" className="mt-0 anim-rise">
-            <AIChatbot selectedPatient={selectedPatient} />
           </TabsContent>
 
           <TabsContent value="appointments" className="mt-0 anim-rise">
@@ -560,26 +531,6 @@ const PatientDashboard = () => {
           </TabsContent>
         </Tabs>
       </RefShell>
-
-      {/* Floating AI Chatbot Button */}
-      <Drawer open={isChatbotOpen} onOpenChange={setIsChatbotOpen} shouldScaleBackground={false}>
-        <DrawerTrigger asChild>
-          <Button
-            className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg z-40 bg-accent hover:bg-accent/90 text-accent-foreground"
-            size="icon"
-          >
-            <Bot className="w-5 h-5 sm:w-6 sm:h-6" />
-          </Button>
-        </DrawerTrigger>
-        <DrawerContent className="h-[85vh] sm:h-[80vh]">
-          <DrawerHeader>
-            <DrawerTitle className="font-display">AI Health Assistant</DrawerTitle>
-          </DrawerHeader>
-          <div className="flex-1 p-4">
-            <AIChatbot selectedPatient={selectedPatient} />
-          </div>
-        </DrawerContent>
-      </Drawer>
     </>
   );
 };
