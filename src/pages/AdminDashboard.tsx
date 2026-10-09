@@ -30,7 +30,8 @@ import {
   createDoctor,
   getAllAppointments,
   getAdminDoctorReports,
-  markDoctorReportReviewed,
+  sendDoctorReportToPatient,
+  dismissDoctorReport,
   getUsers,
   getAllPayments,
   getAdminPrescriptions,
@@ -92,6 +93,10 @@ const AdminDashboard = () => {
   // Reject-prescription dialog
   const [rejectingRx, setRejectingRx] = useState<AdminPrescription | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+
+  // Dismiss-recommendation dialog (keep internal, never shown to the patient)
+  const [dismissingReport, setDismissingReport] = useState<DoctorReportItem | null>(null);
+  const [dismissNote, setDismissNote] = useState("");
 
   // View application/account details dialog - full record (doctor or
   // patient) so admin can review everything submitted at signup, including
@@ -200,13 +205,32 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleMarkReviewed = async (reportId: string) => {
+  // Approves a recommendation and forwards it to the patient - the moment it
+  // becomes visible to them for the first time.
+  const handleSendReport = async (reportId: string) => {
     setActingOnId(reportId);
     try {
-      await markDoctorReportReviewed(reportId);
-      setReports((prev) => prev.map((r) => (r._id === reportId ? { ...r, status: "reviewed" } : r)));
+      const updated = await sendDoctorReportToPatient(reportId);
+      setReports((prev) => prev.map((r) => (r._id === reportId ? updated : r)));
+      toast({ title: "Sent to patient", description: "The patient has been notified and can now see this recommendation." });
     } catch (error) {
-      toast({ title: "Couldn't update report", description: getErrorMessage(error), variant: "destructive" });
+      toast({ title: "Couldn't send recommendation", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setActingOnId(null);
+    }
+  };
+
+  const handleConfirmDismissReport = async () => {
+    if (!dismissingReport) return;
+    setActingOnId(dismissingReport._id);
+    try {
+      const updated = await dismissDoctorReport(dismissingReport._id, dismissNote.trim() || undefined);
+      setReports((prev) => prev.map((r) => (r._id === dismissingReport._id ? updated : r)));
+      setDismissingReport(null);
+      setDismissNote("");
+      toast({ title: "Kept internal", description: "This recommendation will not be shown to the patient." });
+    } catch (error) {
+      toast({ title: "Couldn't dismiss recommendation", description: getErrorMessage(error), variant: "destructive" });
     } finally {
       setActingOnId(null);
     }
@@ -545,7 +569,10 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Doctor Recommendations</CardTitle>
-                <CardDescription>Private notes doctors send after ending a consultation</CardDescription>
+                <CardDescription>
+                  Doctors can't send a recommendation straight to a patient - review each one, then send it on or
+                  keep it internal.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {reports.length === 0 ? (
@@ -567,21 +594,44 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex items-center space-x-2">
                               <Badge className={urgencyColor(report.urgency)}>{report.urgency}</Badge>
-                              <Badge variant="outline">{report.status}</Badge>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  report.status === "sent"
+                                    ? "text-green-600 border-green-600"
+                                    : report.status === "dismissed"
+                                    ? "text-red-600 border-red-600"
+                                    : "text-yellow-600 border-yellow-600"
+                                }
+                              >
+                                {report.status === "sent" ? "sent to patient" : report.status}
+                              </Badge>
                             </div>
                           </div>
                           <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{report.recommendation}</p>
+                          {report.status === "dismissed" && report.adminNote && (
+                            <p className="text-xs text-gray-500 mt-2">Internal note: {report.adminNote}</p>
+                          )}
                           {report.status === "open" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-3"
-                              onClick={() => handleMarkReviewed(report._id)}
-                              disabled={actingOnId === report._id}
-                            >
-                              {actingOnId === report._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ClipboardList className="w-4 h-4 mr-1" />}
-                              Mark Reviewed
-                            </Button>
+                            <div className="flex gap-2 mt-3">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSendReport(report._id)}
+                                disabled={actingOnId === report._id}
+                              >
+                                {actingOnId === report._id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+                                Send to Patient
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setDismissingReport(report)}
+                                disabled={actingOnId === report._id}
+                              >
+                                <ClipboardList className="w-4 h-4 mr-1" />
+                                Keep Internal
+                              </Button>
+                            </div>
                           )}
                         </CardContent>
                       </Card>
@@ -1033,6 +1083,48 @@ const AdminDashboard = () => {
           )}
         </div>
     </RefShell>
+
+      {/* Keep recommendation internal */}
+      <Dialog
+        open={!!dismissingReport}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDismissingReport(null);
+            setDismissNote("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Keep this recommendation internal</DialogTitle>
+            <DialogDescription>
+              {dismissingReport &&
+                `Dr. ${dismissingReport.doctor.firstName} ${dismissingReport.doctor.lastName}'s note for ${dismissingReport.patient.firstName} ${dismissingReport.patient.lastName}`}
+              {" — the patient will never see this recommendation."}
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label htmlFor="dismiss-note">Internal note (optional)</Label>
+            <Textarea
+              id="dismiss-note"
+              className="mt-2"
+              maxLength={500}
+              value={dismissNote}
+              onChange={(e) => setDismissNote(e.target.value)}
+              placeholder="e.g. Operational concern, not meant for the patient"
+            />
+          </div>
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button variant="outline" onClick={() => { setDismissingReport(null); setDismissNote(""); }} disabled={!!actingOnId}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDismissReport} disabled={!!actingOnId}>
+              {actingOnId && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Keep Internal
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject prescription */}
       <Dialog open={!!rejectingRx} onOpenChange={(open) => !open && setRejectingRx(null)}>

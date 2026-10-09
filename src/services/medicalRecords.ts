@@ -1,5 +1,5 @@
 import API from "./api";
-import type { ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument } from "@/types";
+import type { ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument, DoctorRecommendation } from "@/types";
 
 // Both patients and doctors scope requests with either familyMemberId (patient
 // view of a dependent) or patientId (doctor view of any patient), matching the
@@ -150,4 +150,12 @@ export const uploadDocument = async (input: UploadDocumentInput): Promise<Patien
 
 export const deleteDocument = async (id: string): Promise<void> => {
   await API.delete(`/medical-records/documents/${id}`);
+};
+
+// Doctor recommendations an admin has approved and sent on - see
+// DoctorRecommendation in types.ts for why nothing still pending or
+// dismissed ever shows up here.
+export const getRecommendations = async (params: RecordsScopeParams): Promise<DoctorRecommendation[]> => {
+  const { data } = await API.get("/medical-records/recommendations", { params });
+  return data.recommendations;
 };

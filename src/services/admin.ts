@@ -51,8 +51,17 @@ export const getAdminDoctorReports = async (status?: string): Promise<DoctorRepo
   return data.reports;
 };
 
-export const markDoctorReportReviewed = async (id: string): Promise<DoctorReportItem> => {
-  const { data } = await API.patch(`/admin/doctor-reports/${id}/review`);
+// Approves a doctor's recommendation and forwards it to the patient - the
+// moment it becomes visible to them for the first time.
+export const sendDoctorReportToPatient = async (id: string): Promise<DoctorReportItem> => {
+  const { data } = await API.patch(`/admin/doctor-reports/${id}/send`);
+  return data.report;
+};
+
+// Keeps a recommendation internal - the patient never sees it. For purely
+// clinical/operational notes that were never meant to reach them.
+export const dismissDoctorReport = async (id: string, note?: string): Promise<DoctorReportItem> => {
+  const { data } = await API.patch(`/admin/doctor-reports/${id}/dismiss`, { note });
   return data.report;
 };
 

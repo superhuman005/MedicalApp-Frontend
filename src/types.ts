@@ -332,6 +332,8 @@ export interface Payment {
   createdAt: string;
 }
 
+export type DoctorReportStatus = "open" | "sent" | "dismissed";
+
 export interface DoctorReportItem {
   _id: string;
   doctor: { _id: string; firstName: string; lastName: string; specialization?: string; avatar?: string };
@@ -340,9 +342,25 @@ export interface DoctorReportItem {
   appointment: { _id: string; date: string; time: string; type: string; appointmentType: string; status: string };
   recommendation: string;
   urgency: "low" | "medium" | "high";
-  status: "open" | "reviewed";
-  reviewedBy?: { _id: string; firstName: string; lastName: string };
-  reviewedAt?: string;
+  status: DoctorReportStatus;
+  adminNote?: string;
+  handledBy?: { _id: string; firstName: string; lastName: string };
+  handledAt?: string;
+  createdAt: string;
+}
+
+// A doctor's recommendation as the PATIENT sees it - only ever reaches this
+// endpoint once an admin has approved and sent it on (see
+// getRecommendations/sendReportToPatient); a patient never sees one that's
+// still pending review or was dismissed as internal-only.
+export interface DoctorRecommendation {
+  _id: string;
+  doctor: { _id: string; firstName: string; lastName: string; specialization?: string; avatar?: string };
+  familyMember?: { _id: string; name: string; relationship: string };
+  appointment?: { _id: string; date: string; time: string; type: string; appointmentType: string };
+  recommendation: string;
+  urgency: "low" | "medium" | "high";
+  handledAt?: string;
   createdAt: string;
 }
 

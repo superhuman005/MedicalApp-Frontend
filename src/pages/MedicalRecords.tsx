@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Download, Search, Calendar, Pill, Activity, ArrowLeft, Loader2, Plus, Upload, Trash2, File as FileIcon } from "lucide-react";
+import { FileText, Download, Search, Calendar, Pill, Activity, ArrowLeft, Loader2, Plus, Upload, Trash2, File as FileIcon, Stethoscope } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -26,9 +26,10 @@ import {
   getDocuments,
   uploadDocument,
   deleteDocument,
+  getRecommendations,
 } from "@/services/medicalRecords";
 import { getSocket } from "@/services/socket";
-import type { FamilyMember, ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument, User } from "@/types";
+import type { FamilyMember, ConsultationRecord, Prescription, VitalSign, LabResult, PatientDocument, DoctorRecommendation, User } from "@/types";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
 
@@ -54,6 +55,7 @@ const MedicalRecords = () => {
   const [vitals, setVitals] = useState<VitalSign[]>([]);
   const [labs, setLabs] = useState<LabResult[]>([]);
   const [documents, setDocuments] = useState<PatientDocument[]>([]);
+  const [recommendations, setRecommendations] = useState<DoctorRecommendation[]>([]);
 
   const [isVitalDialogOpen, setIsVitalDialogOpen] = useState(false);
   const [isPrescriptionDialogOpen, setIsPrescriptionDialogOpen] = useState(false);
@@ -74,18 +76,20 @@ const MedicalRecords = () => {
   const loadRecords = useCallback(async () => {
     if (isDoctor && !patientIdParam) return;
     try {
-      const [c, p, v, l, d] = await Promise.all([
+      const [c, p, v, l, d, r] = await Promise.all([
         getConsultations(scope),
         getPrescriptions(scope),
         getVitals(scope),
         getLabResults(scope),
         getDocuments(scope),
+        getRecommendations(scope),
       ]);
       setConsultations(c);
       setPrescriptions(p);
       setVitals(v);
       setLabs(l);
       setDocuments(d);
+      setRecommendations(r);
     } catch (error) {
       toast({ title: "Couldn't load records", description: getErrorMessage(error), variant: "destructive" });
     }
@@ -124,16 +128,18 @@ const MedicalRecords = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyMemberIdParam, patientIdParam, isDoctor]);
 
-  // Live-refresh the moment admin sends a prescription on - the backend only
-  // emits this to the patient it belongs to, so this is a no-op for a doctor
-  // viewing someone else's chart.
+  // Live-refresh the moment admin sends a prescription or recommendation on -
+  // the backend only emits these to the patient they belong to, so this is a
+  // no-op for a doctor viewing someone else's chart.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const handleFulfilled = () => loadRecords();
-    socket.on("prescription:fulfilled", handleFulfilled);
+    const refresh = () => loadRecords();
+    socket.on("prescription:fulfilled", refresh);
+    socket.on("recommendation:sent", refresh);
     return () => {
-      socket.off("prescription:fulfilled", handleFulfilled);
+      socket.off("prescription:fulfilled", refresh);
+      socket.off("recommendation:sent", refresh);
     };
   }, [loadRecords]);
 
@@ -449,8 +455,9 @@ const MedicalRecords = () => {
 
         {/* Records Tabs */}
         <Tabs defaultValue="consultations" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="consultations">Consultations</TabsTrigger>
+            <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
             <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
             <TabsTrigger value="vitals">Vital Signs</TabsTrigger>
             <TabsTrigger value="labs">Lab Results</TabsTrigger>
@@ -501,6 +508,52 @@ const MedicalRecords = () => {
                         </div>
                       </CardContent>
                     )}
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="recommendations">
+            {recommendations.length === 0 ? (
+              <p className="text-center text-sm text-gray-500 py-12">
+                No recommendations yet. Anything your doctor sends after a consultation, once reviewed by our admin
+                team, will show up here.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {recommendations.map((rec) => (
+                  <Card key={rec._id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start space-x-3">
+                        <Stethoscope className="w-5 h-5 text-blue-600 mt-1" />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-lg">
+                              Dr. {rec.doctor.firstName} {rec.doctor.lastName}
+                              {rec.doctor.specialization && <span className="text-sm text-gray-500 font-normal"> • {rec.doctor.specialization}</span>}
+                            </h3>
+                            <Badge
+                              variant="outline"
+                              className={
+                                rec.urgency === "high"
+                                  ? "text-red-600 border-red-600"
+                                  : rec.urgency === "medium"
+                                  ? "text-yellow-600 border-yellow-600"
+                                  : "text-green-600 border-green-600"
+                              }
+                            >
+                              {rec.urgency} priority
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {rec.appointment ? `${rec.appointment.appointmentType} • ` : ''}
+                            {new Date(rec.handledAt || rec.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg mt-3">{rec.recommendation}</p>
+                        </div>
+                      </div>
+                    </CardContent>
                   </Card>
                 ))}
               </div>
