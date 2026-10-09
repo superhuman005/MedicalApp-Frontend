@@ -16,6 +16,7 @@ import PatientSubscription from "@/components/PatientSubscription";
 import PatientSelector from "@/components/PatientSelector";
 import PatientManagement from "@/components/PatientManagement";
 import DoctorList from "@/components/DoctorList";
+import SmartwatchConnect from "@/components/SmartwatchConnect";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/services/api";
@@ -28,21 +29,22 @@ import {
 } from "@/services/familyMembers";
 import { getMyAppointments } from "@/services/appointments";
 import { getCurrentSubscription } from "@/services/subscriptions";
-import { getConsultations, getPrescriptions } from "@/services/medicalRecords";
-import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord, Prescription } from "@/types";
+import { getConsultations, getPrescriptions, getVitals } from "@/services/medicalRecords";
+import type { FamilyMember, Appointment, Subscription, SubscriptionLimits, ConsultationRecord, Prescription, VitalSign } from "@/types";
 
 // This dashboard's own emphasis color (teal, same as the app-wide brand
 // primary) - passed to RefShell for nav highlights. Doctor and admin
 // use their own accent hex so the three workspaces read as distinct roles.
 const ACCENT = "#0d9488";
 
-type SectionKey = "overview" | "request" | "appointments" | "records" | "prescriptions" | "patients" | "subscription";
+type SectionKey = "overview" | "request" | "appointments" | "records" | "vitals" | "prescriptions" | "patients" | "subscription";
 
 const NAV_ITEMS: RefNavItem[] = [
   { id: "overview", label: "Overview", icon: "grid" },
   { id: "request", label: "Request Care", icon: "stethoscope" },
   { id: "appointments", label: "Appointments", icon: "calendar" },
   { id: "records", label: "Records", icon: "file" },
+  { id: "vitals", label: "Vitals", icon: "activity" },
   { id: "prescriptions", label: "Prescriptions", icon: "pill" },
   { id: "patients", label: "Patients", icon: "user" },
   { id: "subscription", label: "Subscription", icon: "wallet" },
@@ -53,6 +55,7 @@ const SECTION_COPY: Record<SectionKey, { title: string; subtitle: string }> = {
   request: { title: "Request Care", subtitle: "Get matched with an available doctor" },
   appointments: { title: "Appointments", subtitle: "Everything you've booked" },
   records: { title: "Medical Records", subtitle: "Your family's health history" },
+  vitals: { title: "Vitals", subtitle: "Connect a smartwatch and track your readings" },
   prescriptions: { title: "Prescriptions", subtitle: "Medications your doctor has sent you" },
   patients: { title: "Patients", subtitle: "Manage who's covered on your account" },
   subscription: { title: "Subscription", subtitle: "Plan, usage, and billing" },
@@ -73,9 +76,11 @@ const PatientDashboard = () => {
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
   const [recentRecords, setRecentRecords] = useState<ConsultationRecord[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [vitals, setVitals] = useState<VitalSign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
+  const [vitalsLoading, setVitalsLoading] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -113,6 +118,19 @@ const PatientDashboard = () => {
       .catch(() => setRecentRecords([]))
       .finally(() => setRecordsLoading(false));
   }, [selectedPatient]);
+
+  // Load this patient's own vitals (vitals tab) - scoped to "self", never a
+  // family member, since a smartwatch belongs to whoever is wearing it.
+  // Reloaded each time the tab is opened so freshly-synced wearable readings
+  // show up without needing a full page refresh.
+  useEffect(() => {
+    if (activeTab !== "vitals") return;
+    setVitalsLoading(true);
+    getVitals({})
+      .then((data) => setVitals(data.filter((v) => !v.familyMember)))
+      .catch(() => setVitals([]))
+      .finally(() => setVitalsLoading(false));
+  }, [activeTab]);
 
   // Load this patient's prescriptions (prescriptions tab) - the backend only
   // ever returns ones an admin has sent on ("fulfilled"), so everything here
@@ -523,6 +541,64 @@ const PatientDashboard = () => {
                   <div className="text-center py-8 text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
                     <p>Please select a patient to view their medical records</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="vitals" className="mt-0 space-y-6 anim-rise">
+            <SmartwatchConnect />
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-display">Recent Readings</CardTitle>
+                <CardDescription>Your own vitals - synced from a connected device or logged by hand</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {vitalsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : vitals.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-8">
+                    No vitals recorded yet. Connect a smartwatch above, or log a reading by hand from the Records
+                    page.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {vitals.slice(0, 10).map((vital) => (
+                      <div key={vital._id} className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border">
+                        <div className="flex items-center gap-4 min-w-0 flex-wrap">
+                          {vital.heartRate && (
+                            <div className="text-center shrink-0">
+                              <div className="text-lg font-bold text-red-500">{vital.heartRate}</div>
+                              <div className="text-[11px] text-muted-foreground">bpm</div>
+                            </div>
+                          )}
+                          {vital.bloodPressure && (
+                            <div className="text-center shrink-0">
+                              <div className="text-lg font-bold text-blue-600">{vital.bloodPressure}</div>
+                              <div className="text-[11px] text-muted-foreground">BP</div>
+                            </div>
+                          )}
+                          {vital.oxygenSaturation && (
+                            <div className="text-center shrink-0">
+                              <div className="text-lg font-bold text-indigo-600">{vital.oxygenSaturation}</div>
+                              <div className="text-[11px] text-muted-foreground">SpO2</div>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(vital.date).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 capitalize">
+                          {vital.source === "wearable" ? `Synced · ${vital.device || "device"}` : "Logged manually"}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

@@ -479,6 +479,11 @@ const MedicalRecords = () => {
                         <div className="flex items-center space-x-2">
                           <Activity className="w-5 h-5 text-red-600" />
                           <h3 className="font-semibold text-lg">Vital Signs</h3>
+                          {vital.source === "wearable" && (
+                            <Badge variant="outline" className="text-xs">
+                              Synced{vital.device ? ` · ${vital.device}` : ""}
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500">{new Date(vital.date).toLocaleDateString()}</div>
                       </div>

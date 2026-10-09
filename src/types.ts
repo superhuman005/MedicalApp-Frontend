@@ -164,6 +164,21 @@ export interface VitalSign {
   weight?: string;
   height?: string;
   oxygenSaturation?: string;
+  // Where this reading came from - typed in by the patient, or synced
+  // automatically from a connected smartwatch/heart-rate monitor.
+  source?: "manual" | "wearable";
+  device?: string;
+}
+
+// A patient's connected smartwatch/heart-rate monitor - see
+// src/components/SmartwatchConnect.tsx and src/services/wearables.ts.
+export interface WearableDevice {
+  _id: string;
+  provider: "bluetooth";
+  deviceName: string;
+  connectedAt: string;
+  lastSyncAt?: string;
+  lastHeartRate?: number;
 }
 
 export interface LabResult {
